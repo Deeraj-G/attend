@@ -1,0 +1,75 @@
+{
+  "images": [
+    {
+      "url": "https://d31g6oeq0bzej7.cloudfront.net/Assets/ResizeImages/image/webp/__detail/93974b8d-688f-4ade-9328-18883353a725.webp",
+      "source": "American Academy of Ophthalmology (EyeWiki / Image Library)",
+      "caption": "Fundus photograph of an ischemic central retinal vein occlusion (CRVO), showing widespread retinal hemorrhages throughout the retina characteristic of the severe ischemic form."
+    },
+    {
+      "url": "https://d31g6oeq0bzej7.cloudfront.net/Assets/ResizeImages/image/webp/__detail/54de8b13-9c07-4cb9-ba06-1a4ddb47a7e6.webp",
+      "source": "American Academy of Ophthalmology (EyeWiki / Image Library)",
+      "caption": "Fundus photograph of a nonischemic central retinal vein occlusion (CRVO), showing the milder presentation with scattered retinal hemorrhages and mild vascular changes."
+    },
+    {
+      "url": "https://d31g6oeq0bzej7.cloudfront.net/Assets/ResizeImages/image/webp/__detail/7966442e-40b8-4bf0-bbe6-0f5f89842531.webp",
+      "source": "American Academy of Ophthalmology (EyeWiki / Image Library)",
+      "caption": "Fundus photograph of a branch retinal vein occlusion (BRVO), showing retinal hemorrhages confined to the area drained by the occluded branch retinal vein."
+    },
+    {
+      "url": "https://d31g6oeq0bzej7.cloudfront.net/Assets/ResizeImages/image/webp/__detail/73bd2665-71e5-4081-81d5-74c38d752f81.webp",
+      "source": "American Academy of Ophthalmology (EyeWiki / Image Library)",
+      "caption": "Fundus photograph of retinal vein occlusion (RVO) used as a generic clinical reference image in the AAO image library."
+    },
+    {
+      "url": "https://eyewiki-images.s3.us-east-va.perf.cloud.ovh.us/7/78/BRVO.PNG",
+      "source": "American Academy of Ophthalmology (EyeWiki)",
+      "caption": "Branch retinal vein occlusion of the superotemporal branch vein in the right eye — fundus photograph showing widespread hemorrhages and cotton-wool spots (axonal congestion, indicated by white circles) upstream of the venous occlusion."
+    },
+    {
+      "url": "https://www.nei.nih.gov/sites/default/files/styles/thumbnail/public/2022-04/eye_schematic_RVO_v2-02.png",
+      "source": "National Eye Institute (NIH)",
+      "caption": "NEI schematic related to retinal vein occlusion research, illustrating the eye anatomy relevant to CRVO and BRVO for patient education."
+    }
+  ],
+  "context": "Retinal vein occlusion (RVO) is a blockage of one or more veins that carry blood away from the retina — the light-sensitive tissue at the back of the eye — and is the second most common retinal vascular disorder after diabetic retinopathy. Affecting an estimated 16 million people worldwide, RVO usually occurs in people over age 50 and is most often caused by a blood clot or by a hardened retinal artery pressing on a vein at an arteriovenous crossing. The blockage can cause blood and fluid to leak into the retina, leading to macular edema (swelling of the central retina), and in more severe cases the growth of abnormal new blood vessels (neovascularization) that can cause bleeding, retinal detachment, and dangerously elevated eye pressure (neovascular glaucoma). There is no safe way to physically unblock the retinal vein; treatment focuses on managing complications and protecting remaining vision.",
+  "subject": "Retinal Vein Occlusion (RVO; eye vein occlusion)",
+  "description": {
+    "types": [
+      "Central retinal vein occlusion (CRVO) — blockage of the eye's main retinal vein; may be nonischemic (mild, with leaky retinal vessels) or ischemic (severe, with reduced or blocked blood flow)",
+      "Branch retinal vein occlusion (BRVO) — blockage of one of the smaller branch veins draining a section of the retina; more common than CRVO"
+    ],
+    "causes": [
+      "Blood clot (thrombus) blocking blood flow through the retinal vein — including thrombosis of the central retinal vein posterior to the lamina cribrosa in CRVO",
+      "Compression of a retinal vein at an arteriovenous crossing, where a hardened/thickened retinal artery (atherosclerosis) presses on the adjacent vein, causing turbulent flow, endothelial damage, and thrombosis — the principal mechanism of BRVO",
+      "Slowdown of blood flow through the retinal vein",
+      "Less commonly: inherited or acquired clotting disorders, dysproteinemias, vasculitis, antiphospholipid syndrome, or hyperviscosity syndromes (especially in patients under 40)"
+    ],
+    "symptoms": [
+      "Blurry or reduced vision — often sudden, in part or all of one eye; can develop over hours or days and may be the only symptom at onset",
+      "Floaters — dark spots, lines, or squiggles in the field of vision from blood leaking into the vitreous",
+      "Pain or pressure in the affected eye — more typical of severe/ischemic occlusions and of neovascular glaucoma",
+      "Sudden, partial (BRVO) or central (CRVO) field-of-vision defect or loss of vision including total loss in severe cases",
+      "May be asymptomatic — particularly with small branch occlusions — and detected only on a routine dilated eye exam"
+    ],
+    "risk_factors": [
+      "High blood pressure (hypertension)",
+      "Diabetes mellitus",
+      "Atherosclerosis / hardening of the arteries (arteriosclerosis)",
+      "Glaucoma or elevated intraocular pressure",
+      "Older age (most cases occur in adults aged 50 or older; RVO is uncommon in younger patients)",
+      "Cardiovascular disease and elevated body mass index (obesity)",
+      "Hyperlipidemia / high cholesterol",
+      "Smoking",
+      "Hypercoagulable states — hyperhomocysteinemia, anticardiolipin antibodies; rarely blood cancers such as lymphoma, leukemia, or multiple myeloma; eye trauma",
+      "History of retinal vein occlusion in one eye increases risk for the other eye"
+    ],
+    "treatment_options": [
+      "Intravitreal anti-VEGF injections — first-line therapy for macular edema and neovascularization; agents include aflibercept (Eylea), bevacizumab (Avastin), ranibizumab (Lucentis/Byooviz/Cimerli/Susvimo), and the bispecific antibody faricimab-svoa (Vabysmo); repeated over months to years as needed",
+      "Corticosteroid (steroid) injections or sustained-release implants — second-line option to reduce macular edema when anti-VEGF is insufficient; risks include elevated eye pressure and cataract formation",
+      "Laser photocoagulation — focal/grid laser to seal leaking perifoveal vessels (especially in BRVO) and panretinal photocoagulation (PRP) to cause regression of abnormal new vessels in severe ischemic CRVO",
+      "Vitrectomy surgery (pars plana vitrectomy) — for persistent vitreous hemorrhage (e.g., bleeding lasting more than four weeks or recurring) or for tractional retinal detachment",
+      "Coordination with primary care to control underlying medical risk factors — blood pressure, blood glucose, cholesterol — through diet, exercise, weight, smoking cessation, and medications such as antihypertensives or lipid-lowering drugs",
+      "Ongoing monitoring with dilated eye exam, optical coherence tomography (OCT), and fluorescein angiography to detect complications (macular edema, neovascularization, retinal detachment) and guide treatment timing"
+    ]
+  }
+}
