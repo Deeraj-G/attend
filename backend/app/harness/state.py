@@ -93,7 +93,13 @@ def build_state(reports: list[Report], inputs: list[DoctorInput]) -> TaskState:
 
     storyboard = state.subtasks["storyboard"]
     if storyboard.fresh and storyboard.fresh_report:
-        scene_count = int(storyboard.fresh_report.state_update.data.get("scene_count", 0))
+        scene_count = storyboard.fresh_report.state_update.data.get("scene_count")
+        # The storyboard contract requires scene_count; without it assemble would get no scenes.
+        if not isinstance(scene_count, int) or scene_count < 1:
+            raise ValueError(
+                f"storyboard report {storyboard.fresh_report.id} is complete but has "
+                f"no valid scene_count: {scene_count!r}"
+            )
         scenes = [f"scene:{n}" for n in range(1, scene_count + 1)]
         for scene in scenes:
             add(scene, ["storyboard"])

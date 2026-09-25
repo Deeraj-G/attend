@@ -302,6 +302,17 @@ def test_storyboard_edit_regenerates_everything_downstream(case):
     assert issued == ["storyboard", "narration", "scene:1", "scene:2", "scene:3", "assemble"]
 
 
+@pytest.mark.parametrize("data", [{}, {"scene_count": 0}, {"scene_count": "3"}])
+def test_complete_storyboard_without_valid_scene_count_raises(case, data):
+    for _ in PIPELINE[:3]:
+        case.audit(case.step())
+    storyboard = case.step()
+    assert storyboard.subtask == "storyboard"
+    case.audit(storyboard, data=data)
+    with pytest.raises(ValueError, match="scene_count"):
+        case.step()
+
+
 def test_new_storyboard_scene_count_changes_scene_set(case):
     case.run()
     case.doctor("edit", target="storyboard", text="fewer scenes")
