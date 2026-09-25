@@ -83,7 +83,16 @@ class AuditAgent:
             return report("incomplete", gaps=["fewer than 3 trusted sources"], verifier="unavailable")
 
         a = verdict.assessment
-        data = {"relational_score": verdict.relational_score, "route": verdict.decision}
+        # Keep what the video step needs. Evidence is stored as URLs, since result IDs are positional.
+        urls = {r.id: r.url for r in results}
+        data = {
+            "relational_score": verdict.relational_score,
+            "route": verdict.decision,
+            "evidence_urls": [urls[i] for i in a.evidence_ids if i in urls],
+            "generation_requirements": a.generation_requirements,
+            "assumptions": a.assumptions,
+            "missing_evidence": a.missing_evidence,
+        }
         if verdict.decision == "review":
             return report("blocked", gaps=a.contradictions, question="; ".join(a.contradictions), **data)
         if verdict.decision == "web_search":
