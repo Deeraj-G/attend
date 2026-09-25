@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 from backend.app.config import settings
@@ -19,7 +20,10 @@ class Workspace:
 
     def record_provenance(self, relative: str, executor: str) -> None:
         """Record which executor wrote an artifact, for the Auditor's provenance check."""
-        raise NotImplementedError
+        entries = self.provenance()
+        entries[relative] = executor
+        self.path("provenance.json").write_text(json.dumps(entries, indent=2))
 
     def provenance(self) -> dict[str, str]:
-        raise NotImplementedError
+        path = self.path("provenance.json")
+        return json.loads(path.read_text()) if path.exists() else {}
