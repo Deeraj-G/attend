@@ -17,8 +17,10 @@ from liquid_audio import ChatState, LFM2AudioModel, LFM2AudioProcessor
 MODEL_PATH = os.environ.get("LFM_AUDIO_MODEL_PATH", "LiquidAI/LFM2.5-Audio-1.5B")
 # Both default to device="cuda" in liquid-audio; this container has no GPU.
 DEVICE = os.environ.get("LFM_AUDIO_DEVICE", "cpu")
-# bfloat16 halves memory vs float32 (~3GB vs ~6GB), so it fits alongside `lfm`.
-DTYPE = getattr(torch, os.environ.get("LFM_AUDIO_DTYPE", "bfloat16"))
+# float32 needs ~6GB, so give Docker more than 8GB. bfloat16 halves that but dies with
+# SIGILL (exit 132) on the first request on Apple silicon: torch's bf16 CPU kernels use
+# instructions the Docker VM doesn't expose.
+DTYPE = getattr(torch, os.environ.get("LFM_AUDIO_DTYPE", "float32"))
 
 if DEVICE == "cpu":
     # liquid_audio 1.3.0's LFM2AudioProcessor.audio_detokenizer hardcodes
@@ -40,7 +42,7 @@ def health():
 # Plain `def` handlers: FastAPI runs them in a thread pool, so CPU-bound
 # inference doesn't block the event loop (and /health) while it runs.
 @app.post("/transcribe")
-def transcribe(audio: UploadFile):
+def transcribe(audio: UploadFile, max_new_tokens: int = 512):
     with tempfile.NamedTemporaryFile(suffix=".wav") as tmp:
         tmp.write(audio.file.read())
         tmp.flush()
@@ -55,12 +57,12 @@ def transcribe(audio: UploadFile):
     chat.end_turn()
     chat.new_turn("assistant")
 
-    text = ""
     with torch.no_grad():
-        for t in model.generate_sequential(**chat, max_new_tokens=512):
-            if t.numel() == 1:
-                text += processor.text.decode(t, skip_special_tokens=True)
-    return {"text": text}
+        generated = list(model.generate_sequential(**chat, max_new_tokens=max_new_tokens))
+    # `tokens` counts every generated step; reaching max_new_tokens means the model looped.
+    text_tokens = [t for t in generated if t.numel() == 1]
+    text = processor.text.decode(torch.cat(text_tokens), skip_special_tokens=True) if text_tokens else ""
+    return {"text": text.strip(), "tokens": len(generated)}
 
 
 @app.post("/synthesize")

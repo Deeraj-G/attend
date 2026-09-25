@@ -42,7 +42,7 @@ services:
         "-m", "/models/${LFM_MODEL_FILE:-lfm2.5-2.6b-q4.gguf}",
         "--host", "0.0.0.0",
         "--port", "8080",
-        "-c", "4096",
+        "-c", "8192",
       ]
 
   # LFM2.5-Audio-1.5B (STT + TTS). Downloads from Hugging Face by default;
@@ -56,6 +56,7 @@ services:
       - lfm-audio-hf-cache:/root/.cache/huggingface
     environment:
       LFM_AUDIO_MODEL_PATH: ${LFM_AUDIO_MODEL_PATH:-LiquidAI/LFM2.5-Audio-1.5B}
+      LFM_AUDIO_DTYPE: ${LFM_AUDIO_DTYPE:-float32}
 
 volumes:
   lfm-audio-hf-cache:

@@ -14,6 +14,11 @@ class Settings(BaseSettings):
     lfm_audio_model_path: Path | None = None  # local checkout; falls back to the HF repo below
     lfm_audio_repo: str = "LiquidAI/LFM2.5-Audio-1.5B"
     lfm_audio_device: str = "auto"  # auto | mps | cuda | cpu
+    hf_token: str = ""
+    # When set, call the model servers from docker-compose instead of loading in-process.
+    lfm_base_url: str = ""  # llama.cpp server, OpenAI-compatible
+    lfm_audio_base_url: str = ""  # docker/lfm-audio/server.py
+    model_timeout_seconds: float = 600.0  # CPU inference in a container is slow
 
     # Recorder
     max_recording_seconds: int = 300

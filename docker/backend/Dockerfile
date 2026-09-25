@@ -4,8 +4,9 @@ FROM python:3.13-slim
 
 WORKDIR /app
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Core deps only: the models run in the lfm/lfm-audio containers, so no torch here.
+COPY requirements-core.txt .
+RUN pip install --no-cache-dir -r requirements-core.txt
 
 COPY backend ./backend
 
