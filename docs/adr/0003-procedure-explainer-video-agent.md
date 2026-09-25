@@ -17,10 +17,11 @@ The pipeline the team proposed:
 |---|---|---|
 | 0 | Recorder | OSS audio capture (Python `sounddevice` + `soundfile`, or browser `MediaRecorder`) |
 | 1 | TranscriptionAgent | Liquid AI **LFM2.5-Audio-1.5B** (speech-to-text) |
-| 2 | ManagerAgent (long-running) | Liquid AI **LFM2.5-2.6B** (Q4, CPU, 4k context) |
+| 2 | ManagerAgent (long-running) | Agentic **LiquidAI/LFM2.5-2.6B**, loaded from Hugging Face with Transformers |
 | 3 | WebSearchAgent | **Nimble**: text, image and video search |
-| 4 | AuditAgent | Independent review; discards irrelevant sources and triggers a re-search |
-| 5 | VideoGenerationAgent | **Black Forest Labs**; the doctor can request edits |
+| 4 | VerificationAgent | **LFM2.5-2.6B**: compare original prompt, transcription and search evidence; score relevance from 1–10 |
+| 5 | AuditAgent | Independent review; rejects invalid provenance, unsafe content and workspace violations |
+| 6 | VideoGenerationAgent | **Black Forest Labs**; receives verified results scoring 8 or higher |
 
 This is a long-horizon task. It runs through many searches, audits, scene generations and edit rounds. The 4k-token manager would drown if it carried the full trajectory. The LongHorizon-Harness pattern (Manage → Execute → Audit, with an append-only external state memory of audit reports) solves this directly, and it is what the hackathon asks for.
 
@@ -43,11 +44,13 @@ This is a long-horizon task. It runs through many searches, audits, scene genera
    - **External State Memory:** reports are appended to `reports.jsonl`. They are the *only* thing the Manager reads, so memory grows by one report per round rather than with the trajectory.
    - **Terminate** when every subtask has status `complete`, integrity is `clean`, and the doctor has approved.
 2. **Environment = a per-case workspace folder** (`cases/<case_id>/`): audio, transcript, de-identified brief, sources, storyboard, scene clips, final video. The Auditor checks artifact provenance (which executor wrote each file) and flags unexpected mutations or deletions.
-3. **Decompose the video into scenes** (about 4–6, for example *before you arrive → check-in and prep → anesthesia → the procedure, shown non-graphically → recovery → going home*). Each scene is its own subtask contract. Edits regenerate a single scene, not the whole video.
-4. **Build narration on device.** LFM2.5-2.6B writes a script at a 6th–8th grade reading level, and LFM2.5-Audio-1.5B voices it. The final video is BFL scene clips plus narration, stitched with `ffmpeg`.
-5. **Put a PHI boundary at the device edge.** A de-identification step (rules for names, dates and IDs, followed by an LFM pass) produces the only text that may leave. The Auditor re-checks every outbound payload.
-6. **Use the ask route (human in the loop) for:** conflicts between the doctor's description and the sources, `blocked` subtasks, and the **final approval gate**. Edit requests come back in by voice and are transcribed on device.
-7. **Sponsor tools:** Liquid AI (two models), Nimble, Black Forest Labs. That makes 3. An optional 4th is **RawTree/Tinybird**, used as a queryable mirror of the report log and for analytics across cases (reuse audited sources and storyboards for the same procedure type).
+3. **Verify the research handoff.** VerificationAgent receives the original prompt, transcribed search prompt, and Nimble's textual evidence plus captions or upstream analysis for image and video results. It returns one relational score from 1–10. Scores of **8 or higher** move to multimedia generation; lower scores trigger another search, or review when the evidence contains a material contradiction. The score measures relevance rather than clinical truth. LFM2.5-2.6B is text-only, so a bare media URL is never treated as verified visual evidence.
+4. **Decompose the video into scenes** (about 4–6, for example *before you arrive → check-in and prep → anesthesia → the procedure, shown non-graphically → recovery → going home*). Each scene is its own subtask contract. Edits regenerate a single scene, not the whole video.
+5. **Build narration on device.** LFM2.5-2.6B writes a script at a 6th–8th grade reading level, and LFM2.5-Audio-1.5B voices it. The final video is BFL scene clips plus narration, stitched with `ffmpeg`.
+6. **Put a PHI boundary at the device edge.** A de-identification step (rules for names, dates and IDs, followed by an LFM pass) produces the only text that may leave. The Auditor re-checks every outbound payload.
+7. **Use the ask route (human in the loop) for:** conflicts between the doctor's description and the sources, `blocked` subtasks, and the **final approval gate**. Edit requests come back in by voice and are transcribed on device.
+8. **Load the agentic checkpoint through Hugging Face.** The Python client uses Transformers 5 or newer with the `LiquidAI/LFM2.5-2.6B` model ID and validates the model's JSON response with Pydantic before routing it.
+9. **Sponsor tools:** Liquid AI (two models), Nimble, Black Forest Labs. That makes 3. An optional 4th is **RawTree/Tinybird**, used as a queryable mirror of the report log and for analytics across cases (reuse audited sources and storyboards for the same procedure type).
 
 ---
 
@@ -73,8 +76,9 @@ flowchart LR
     subgraph Execute["EXECUTE · fresh context + budget"]
         E1["TranscriptionAgent<br/>LFM2.5-Audio STT"]
         E2["WebSearchAgent<br/>Nimble text / image / video"]
-        E3["ScriptAgent<br/>LFM2.5-2.6B + Audio TTS"]
-        E4["VideoGenerationAgent<br/>Black Forest Labs"]
+        E3["VerificationAgent<br/>LFM2.5-2.6B · score 1–10"]
+        E4["ScriptAgent<br/>LFM2.5-2.6B + Audio TTS"]
+        E5["VideoGenerationAgent<br/>Black Forest Labs"]
     end
 
     subgraph Audit["AUDIT · read-only, clean context"]
@@ -104,9 +108,9 @@ flowchart TD
     S0["c0 · Record<br/>doctor audio → case workspace"] --> S1["c1 · Transcribe<br/>LFM2.5-Audio STT"]
     S1 --> S2["c2 · De-identify + brief<br/>procedure, steps, patient concerns"]
     S2 --> S3["c3 · Research<br/>Nimble text + image + video"]
-    S3 --> S4["c4 · Source audit<br/>keep authoritative, drop the rest"]
-    S4 -->|gaps| S3
-    S4 --> S5["c5 · Storyboard<br/>4–6 scenes, calm, non-graphic"]
+    S3 --> S4{"c4 · Verify relationship<br/>original + transcript + evidence<br/>score 1–10"}
+    S4 -->|"score < 8 · gaps"| S3
+    S4 -->|"score ≥ 8"| S5["c5 · Storyboard<br/>4–6 scenes, calm, non-graphic"]
     S5 --> S6["c6 · Narration script + TTS<br/>6th–8th grade reading level"]
     S5 --> S7["c7..ck · Generate scene clips<br/>Black Forest Labs, one per scene"]
     S6 --> S8["Assemble<br/>ffmpeg: clips + narration + captions"]

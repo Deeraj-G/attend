@@ -10,6 +10,8 @@ class Settings(BaseSettings):
 
     # On-device models
     lfm_model_path: Path | None = None
+    lfm_model: str = "LiquidAI/LFM2.5-2.6B"
+    hf_token: str = ""
     lfm_audio_model_path: Path | None = None
 
     # External services
