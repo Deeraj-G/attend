@@ -20,3 +20,6 @@ dist/
 
 # Case workspaces (may contain PHI)
 cases/
+
+# Local model weights for docker-compose (LFM GGUF, LFM-Audio checkpoints)
+models/
