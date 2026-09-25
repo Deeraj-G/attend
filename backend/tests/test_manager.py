@@ -194,6 +194,18 @@ def test_blocked_with_answer_retries_with_answer_boundary(case):
     assert "Doctor answered: same-day" in retry.boundaries
 
 
+def test_blocked_past_attempt_cap_retries_only_on_a_new_answer(case):
+    # ADR 0004: each doctor answer allows one more attempt, even past max_attempts.
+    for n in range(3):
+        blocked = case.step()
+        assert (blocked.subtask, blocked.attempt) == ("transcribe", n + 1)
+        case.audit(blocked, status="blocked", data={"question": "?"})
+        if n < 2:
+            case.doctor("answer", target="transcribe", text=f"answer {n}")
+    decision = case.step()
+    assert isinstance(decision, AskDoctor) and decision.kind == "conflict"
+
+
 def test_answer_for_another_subtask_does_not_unblock(case):
     case.audit(case.step(), status="blocked", data={"question": "?"})
     case.doctor("answer", target="research", text="unrelated")
