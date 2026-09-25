@@ -24,9 +24,10 @@ ADR 0003 describes a Manager that reads only audit reports, decides the next sub
    It holds no state of its own. Every round it rebuilds the task state from the logs, so a crash or restart loses nothing.
 2. **Subtasks form a fixed dependency graph** (below). The Manager picks the **first subtask in topological order that is not fresh but whose dependencies are all fresh**, and issues one contract for it. It issues one contract per round; scene clips could run in parallel later.
 3. **Freshness replaces explicit invalidation.** A subtask is *fresh* when its latest report is `complete` + `clean` **and** that report is newer than its dependencies' fresh reports **and** newer than any doctor input that targets it. When an upstream result changes, or the doctor asks for an edit, everything downstream goes stale automatically, and only that part is regenerated.
-4. **The latest report decides the retry**, following the decision flow below. Retries are capped per subtask. Research that runs out of attempts proceeds with its gaps recorded; any other subtask that runs out of attempts goes to the doctor.
-5. **Doctor inputs live in a separate append-only log**, `inputs.jsonl`, in the case folder. This refines ADR 0003's "reports only" rule: the Manager reads reports **and** doctor inputs, and still never reads the workspace.
-6. **Edits carry an explicit target** (`scene:3`, `narration`, `storyboard`) in milestone 1. The review UI makes the doctor pick the target. Parsing free-text edits ("scene 3 is too clinical") into a target is later LFM work.
+4. **A PHI violation discards the source, not the case.** The Auditor removes the offending item (a source, a media reference, a prompt) and lists it by reference in `state_update.data["discarded"]`, never by content. The report's `status` then decides the next step as usual, and discarded items are listed as "do not reuse" on later attempts. Nothing halts and nothing else is recomputed.
+5. **The latest report decides the retry**, following the decision flow below. Retries are capped per subtask. Research that runs out of attempts proceeds with its gaps recorded; any other subtask that runs out of attempts goes to the doctor.
+6. **Doctor inputs live in a separate append-only log**, `inputs.jsonl`, in the case folder. This refines ADR 0003's "reports only" rule: the Manager reads reports **and** doctor inputs, and still never reads the workspace.
+7. **Edits carry an explicit target** (`scene:3`, `narration`, `storyboard`) in milestone 1. The review UI makes the doctor pick the target. Parsing free-text edits ("scene 3 is too clinical") into a target is later LFM work.
 
 ---
 
@@ -78,9 +79,7 @@ flowchart TD
 ```mermaid
 flowchart TD
     Start([Round i]) --> Load["Rebuild task state<br/>from reports.jsonl + inputs.jsonl"]
-    Load --> V{"Any unresolved<br/>integrity = violation?"}
-    V -- yes --> AskV["AskDoctor(kind=violation)<br/>halt all outbound work"]
-    V -- no --> Rec{"Recording<br/>received?"}
+    Load --> Rec{"Recording<br/>received?"}
     Rec -- no --> AskR["AskDoctor(kind=recording)"]
     Rec -- yes --> Pick["Pick first subtask in topological order<br/>that is stale and whose deps are fresh"]
     Pick --> Any{"Found one?"}
@@ -89,8 +88,6 @@ flowchart TD
     Appr -- yes --> Done([Done])
     Appr -- no --> AskA["AskDoctor(kind=approval)<br/>review final.mp4"]
 ```
-
-A violation is *resolved* when a doctor input (`kind=answer`) is newer than the violating report. The subtask that caused it is then reissued as a fresh attempt.
 
 ### When a report comes back
 
@@ -101,6 +98,8 @@ flowchart TD
     In([Latest report for subtask S<br/>since S became stale]) --> None{"Any report?"}
     None -- no --> New["Contract: S, attempt 1<br/>from template"]
     None -- yes --> Integ{"integrity"}
+    Integ -- violation --> Disc["Auditor already discarded the items<br/>judge on status, as if clean<br/>+ 'do not reuse' boundary on retries"]
+    Disc --> Stat
 
     Integ -- suspect --> SusCap{"attempts < max?"}
     SusCap -- yes --> SusRe["Contract: S, attempt n+1<br/>+ boundary: 'write only your declared outputs'<br/>+ ref to the suspect report"]
@@ -118,7 +117,7 @@ flowchart TD
     IsRes -- no --> AskI["AskDoctor(kind=retries_exhausted)"]
 ```
 
-`integrity = violation` never reaches this diagram, because the global check above catches it first.
+A doctor answer newer than the latest report also allows one more attempt after `retries_exhausted`.
 
 ### Report outcome → Manager decision
 
@@ -133,14 +132,14 @@ flowchart TD
 | `blocked` · `clean`, newer answer | n/a | `Contract(S, attempt=n+1)`, with the answer added as a boundary |
 | any · `suspect` | yes | `Contract(S, attempt=n+1)` with a tightened write boundary |
 | any · `suspect` | no | `AskDoctor(kind=retries_exhausted)` |
-| any · `violation` | n/a | `AskDoctor(kind=violation)`; nothing else runs until the doctor answers |
+| any · `violation` | n/a | Same as the row for its `status` with `clean`. The Auditor has already discarded the offending items; they are listed in a "Discarded for PHI, do not reuse" boundary on every later attempt. Other subtasks keep running. |
 
 ### Doctor inputs
 
 | Input `kind` | Target | Effect |
 |---|---|---|
 | `recording` | none | Satisfies `recording`. A new recording makes everything stale, so the whole case re-runs. |
-| `answer` | the subtask that asked | Resolves a `blocked` report or a `violation`. The subtask is reissued with the answer as a boundary. |
+| `answer` | the subtask that asked | Resolves a `blocked` report, or allows one more attempt after `retries_exhausted`. The subtask is reissued with the answer as a boundary. |
 | `edit` | `scene:n`, `narration` or `storyboard` | Makes the target stale, which also makes `assemble` stale and forces a new review. The edit text becomes a boundary on the next contract. |
 | `approval` | none | Counts only if newer than the latest fresh `assemble` report. Then the Manager returns `Done`. |
 
@@ -192,6 +191,7 @@ Retry additions, applied on top of the template:
 - **incomplete:** each gap `g` becomes an acceptance criterion: "Resolve: g".
 - **blocked + answer:** a boundary "Doctor answered: …".
 - **suspect:** a boundary "Write only your declared outputs; a previous attempt modified other files".
+- **violation:** a boundary "Discarded for PHI, do not reuse: ref₁, ref₂…", built from every `data.discarded` since the subtask went stale.
 - **edit:** a boundary "Doctor edit: …".
 
 Research that finishes with gaps adds a boundary to `storyboard`: "Research gaps (do not invent content): g₁, g₂…".
@@ -206,9 +206,9 @@ These go into [state/schemas.py](../../backend/app/state/schemas.py) with the im
 |---|---|---|
 | `Contract` | add `subtask: str` (the key, e.g. `scene:3`), `attempt: int` | The Manager has to map reports back to subtasks and count attempts |
 | `Report` | add `subtask: str`, copied from the contract by the Auditor | Same reason; the Manager never parses IDs |
-| `StateUpdate` | add `data: dict[str, Any]` | Structured values the Manager needs: `scene_count`, `question`, `duration_s` |
+| `StateUpdate` | add `data: dict[str, Any]` | Structured values the Manager needs: `scene_count`, `question`, `duration_s`, `discarded` |
 | new `DoctorInput` | `id`, `kind ∈ {recording, answer, edit, approval}`, `target: str \| None`, `text: str \| None`, `created_at` | Stored in `inputs.jsonl` |
-| `AskDoctor` | add `kind ∈ {recording, conflict, violation, retries_exhausted, approval}` and `subtask: str \| None` | Lets the UI render the right prompt |
+| `AskDoctor` | add `kind ∈ {recording, conflict, retries_exhausted, approval}` and `subtask: str \| None` | Lets the UI render the right prompt |
 
 `ManagerAgent.next_step` becomes `next_step(reports, inputs, round_no)`. The loop passes the round number so contract IDs are stable. The task description isn't needed by the rules; it returns when the LFM layer is added.
 

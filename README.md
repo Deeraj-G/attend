@@ -1,4 +1,4 @@
-# longhorizon
+# Attend
 
 ## Prerequisites
 

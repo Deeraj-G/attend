@@ -28,7 +28,7 @@ This is a long-horizon task. It runs through many searches, audits, scene genera
 
 | Constraint | Implication |
 |---|---|
-| The recording may contain **PHI** (patient name, DOB, MRN, history) | Transcription runs on device. Only a **de-identified procedure description** may leave the device for Nimble or BFL. Any PHI in an outbound request is an audit **violation**. |
+| The recording may contain **PHI** (patient name, DOB, MRN, history) | Transcription runs on device. Only a **de-identified procedure description** may leave the device for Nimble or BFL. Any PHI in an outbound request or a returned source is an audit **violation**: the Auditor discards the offending item and the case continues (see [ADR 0004](0004-manager-agent-rule-based-scheduler.md)). |
 | The video is patient education, **not medical advice** | The doctor's description is the source of truth. Web sources may only *enrich* it, never *contradict* it. Conflicts go back to the doctor. |
 | Generated video can show wrong anatomy or be distressing | The style is calm, illustrative and non-graphic. **The doctor must approve before release** (a hard gate). |
 | Source quality matters | Prefer authoritative sources (MedlinePlus, NHS, Mayo Clinic, specialty societies, hospital patient-education pages). Discard forums and marketing pages. |
@@ -180,7 +180,8 @@ sequenceDiagram
 ```mermaid
 flowchart TD
     In([Executor output oi]) --> P{"PHI in any<br/>outbound payload?"}
-    P -- yes --> Vio["integrity = violation<br/>block + ask doctor"]
+    P -- yes --> Vio["Discard offending items<br/>integrity = violation<br/>list refs in data.discarded"]
+    Vio --> Prov
     P -- no --> Prov{"Provenance ok?<br/>only allowed files changed"}
     Prov -- no --> Sus["integrity = suspect<br/>manager re-issues contract"]
     Prov -- yes --> Acc{"Acceptance criteria met?"}
@@ -188,8 +189,7 @@ flowchart TD
     Acc -- yes --> Con{"Consistent with doctor's<br/>description?"}
     Con -- no --> Blk["status = blocked<br/>ask route: conflict"]
     Con -- yes --> Ok["status = complete<br/>integrity = clean"]
-    Vio --> R[(Append Vi)]
-    Sus --> R
+    Sus --> R[(Append Vi)]
     Inc --> R
     Blk --> R
     Ok --> R

@@ -1,6 +1,7 @@
 """Task state rebuilt from reports.jsonl + inputs.jsonl each round (ADR 0004).
 
-A subtask is *fresh* when its latest report since it last became stale is complete + clean.
+A subtask is *fresh* when its latest report since it last became stale is complete and not
+suspect. A violation report counts: the Auditor has already discarded the items with PHI.
 It becomes stale when a dependency becomes fresh again, or when the doctor edits it.
 """
 
@@ -77,8 +78,9 @@ def build_state(reports: list[Report], inputs: list[DoctorInput]) -> TaskState:
         s.stale_since = max(times)
         s.reports = [r for r in by_subtask.get(key, []) if r.created_at > s.stale_since]
 
+        # violation: the Auditor discarded the offending items; what is left is judged on status.
         latest = s.latest
-        if latest and latest.integrity == "clean":
+        if latest and latest.integrity in ("clean", "violation"):
             if latest.status == "complete":
                 s.fresh, s.fresh_report = True, latest
             elif key == "research" and latest.status == "incomplete" and s.attempts >= max_attempts(key):

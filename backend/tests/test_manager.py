@@ -213,27 +213,50 @@ def test_suspect_at_cap_asks_doctor(case):
     assert isinstance(decision, AskDoctor) and decision.kind == "retries_exhausted"
 
 
-def test_violation_halts_everything_until_answered(case):
-    case.run()  # reach approval
-    case.doctor("edit", target="scene:2", text="less clinical")
-    scene = case.step()
-    case.audit(scene, integrity="violation")
-    decision = case.step()
-    assert isinstance(decision, AskDoctor)
-    assert (decision.kind, decision.subtask) == ("violation", "scene:2")
+def test_violation_complete_discards_and_continues(case):
+    for _ in range(2):  # transcribe, deidentify
+        case.audit(case.step())
+    research = case.step()
+    case.audit(research, integrity="violation", data={"discarded": ["sources[2]"]})
+    nxt = case.step()
+    assert isinstance(nxt, Contract) and nxt.subtask == "storyboard"
 
-    case.doctor("answer", target="scene:2", text="prompt cleaned")
+
+def test_violation_incomplete_retries_without_discarded_items(case):
+    for _ in range(2):
+        case.audit(case.step())
+    research = case.step()
+    case.audit(research, status="incomplete", integrity="violation", gaps=["recovery"], data={"discarded": ["sources[2]"]})
     retry = case.step()
-    assert (retry.subtask, retry.attempt) == ("scene:2", 2)
+    assert (retry.subtask, retry.attempt) == ("research", 2)
+    assert "Discarded for PHI, do not reuse: sources[2]" in retry.boundaries
+    assert "Resolve: recovery" in retry.acceptance_criteria
 
 
-def test_violation_blocks_unrelated_pending_work(case):
+def test_discarded_items_accumulate_across_attempts(case):
+    for _ in range(2):
+        case.audit(case.step())
+    for ref in ("sources[2]", "media_refs[0]"):
+        case.audit(case.step(), status="incomplete", integrity="violation", data={"discarded": [ref]})
+    retry = case.step()
+    assert "Discarded for PHI, do not reuse: sources[2], media_refs[0]" in retry.boundaries
+
+
+def test_violation_does_not_block_other_work(case):
     for _ in range(5):  # transcribe .. narration
         case.audit(case.step())
-    case.audit(case.step(), integrity="violation")  # scene:1
-    decision = case.step()  # scene:2 is pending, but nothing else runs
-    assert isinstance(decision, AskDoctor)
-    assert (decision.kind, decision.subtask) == ("violation", "scene:1")
+    case.audit(case.step(), integrity="violation", data={"discarded": ["prompt"]})  # scene:1 complete
+    nxt = case.step()
+    assert isinstance(nxt, Contract) and nxt.subtask == "scene:2"
+
+
+def test_violation_never_asks_the_doctor(case):
+    def outcome(c: Contract) -> dict:
+        return {"integrity": "violation", "data": {"discarded": ["x"]}} if c.subtask == "research" else {}
+
+    decision, issued = case.run(outcome)
+    assert issued == PIPELINE
+    assert decision.kind == "approval"
 
 
 # --- doctor inputs: edits, re-recording, approval freshness ---------------------------------

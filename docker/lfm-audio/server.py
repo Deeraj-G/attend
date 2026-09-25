@@ -15,11 +15,14 @@ from fastapi.responses import Response
 from liquid_audio import ChatState, LFM2AudioModel, LFM2AudioProcessor
 
 MODEL_PATH = os.environ.get("LFM_AUDIO_MODEL_PATH", "LiquidAI/LFM2.5-Audio-1.5B")
+# Both default to device="cuda" in liquid-audio; this container has no GPU.
+DEVICE = os.environ.get("LFM_AUDIO_DEVICE", "cpu")
+DTYPE = getattr(torch, os.environ.get("LFM_AUDIO_DTYPE", "float32"))
 
 app = FastAPI(title="lfm-audio-local")
 
-processor = LFM2AudioProcessor.from_pretrained(MODEL_PATH).eval()
-model = LFM2AudioModel.from_pretrained(MODEL_PATH).eval()
+processor = LFM2AudioProcessor.from_pretrained(MODEL_PATH, device=DEVICE).eval()
+model = LFM2AudioModel.from_pretrained(MODEL_PATH, dtype=DTYPE, device=DEVICE).eval()
 
 
 @app.get("/health")

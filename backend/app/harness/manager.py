@@ -18,7 +18,7 @@ SUSPECT_BOUNDARY = "write only your declared outputs; a previous attempt modifie
 class AskDoctor(BaseModel):
     """Ask route: the loop pauses until a doctor input arrives."""
 
-    kind: Literal["recording", "conflict", "violation", "retries_exhausted", "approval"]
+    kind: Literal["recording", "conflict", "retries_exhausted", "approval"]
     question: str
     subtask: str | None = None
 
@@ -36,14 +36,6 @@ class ManagerAgent:
         if state.recording is None:
             return AskDoctor(kind="recording", question="Record a description of the procedure.")
 
-        if violation := _unresolved_violation(state):
-            return AskDoctor(
-                kind="violation",
-                question=f"PHI was found in an outbound request from {violation.subtask}. "
-                "Review the case, then answer to resume.",
-                subtask=violation.subtask,
-            )
-
         for subtask in state.subtasks.values():
             if not subtask.fresh and subtask.stale_since is not None:
                 return _decide(state, subtask, round_no)
@@ -53,20 +45,6 @@ class ManagerAgent:
         if assemble and assemble.fresh_report and any(t > assemble.fresh_report.created_at for t in approved_at):
             return Done()
         return AskDoctor(kind="approval", question="Review final.mp4 and approve it or request an edit.")
-
-
-def _unresolved_violation(state: TaskState) -> Report | None:
-    """A violation is resolved by a doctor answer targeting its subtask that is newer than it."""
-    assert state.recording is not None
-    latest: dict[str, Report] = {}
-    for r in state.all_reports:
-        if r.created_at > state.recording.created_at:
-            latest[r.subtask] = r
-    for r in latest.values():
-        answers = state.inputs_for(r.subtask, "answer")
-        if r.integrity == "violation" and not any(a.created_at > r.created_at for a in answers):
-            return r
-    return None
 
 
 def _decide(state: TaskState, s: SubtaskState, round_no: int) -> ManagerDecision:
@@ -79,9 +57,8 @@ def _decide(state: TaskState, s: SubtaskState, round_no: int) -> ManagerDecision
     answered = any(a.created_at > latest.created_at for a in state.inputs_for(s.key, "answer"))
     can_retry = answered or s.attempts < max_attempts(s.key)
 
-    if latest.integrity == "violation":  # resolved, or the global check would have stopped us
-        return _contract(state, s, round_no, retry_of=latest)
-
+    # integrity = violation needs no branch of its own: the Auditor has already discarded the
+    # offending items, so the status decides, and _contract lists them as do-not-reuse.
     if latest.integrity == "suspect":
         if can_retry:
             return _contract(state, s, round_no, retry_of=latest, extra_boundaries=[SUSPECT_BOUNDARY])
@@ -117,6 +94,9 @@ def _contract(
     extra_boundaries: list[str] | None = None,
 ) -> Contract:
     boundaries = list(extra_boundaries or [])
+    discarded = [ref for r in s.reports for ref in r.state_update.data.get("discarded", [])]
+    if discarded:
+        boundaries.append(f"Discarded for PHI, do not reuse: {', '.join(discarded)}")
     # Doctor feedback carries forward across regenerations of the same subtask.
     boundaries += [f"Doctor edit: {i.text}" for i in state.inputs_for(s.key, "edit") if i.text]
     boundaries += [f"Doctor answered: {i.text}" for i in state.inputs_for(s.key, "answer") if i.text]

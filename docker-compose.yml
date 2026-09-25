@@ -53,5 +53,9 @@ services:
       - "8090:8090"
     volumes:
       - ${LFM_AUDIO_MODEL_DIR:-./models/lfm-audio}:/models:ro
+      - lfm-audio-hf-cache:/root/.cache/huggingface
     environment:
       LFM_AUDIO_MODEL_PATH: ${LFM_AUDIO_MODEL_PATH:-LiquidAI/LFM2.5-Audio-1.5B}
+
+volumes:
+  lfm-audio-hf-cache:
