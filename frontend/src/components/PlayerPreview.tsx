@@ -10,12 +10,21 @@ function firstSentence(text: string) {
 }
 
 /** Preview of the explainer player. Shows the doctor's own words once a transcript exists. */
-export function PlayerPreview({ mode, transcript }: { mode: Mode; transcript: string | null }) {
+export function PlayerPreview({
+  mode,
+  transcript,
+  videoUrl = null,
+}: {
+  mode: Mode
+  transcript: string | null
+  videoUrl?: string | null
+}) {
   const caption = transcript ? firstSentence(transcript) : DEFAULT_CAPTION
 
   return (
     <figure className="player" aria-label="Explainer video preview">
-      <div className="player-stage">
+      {videoUrl && <video className="player-video" src={videoUrl} controls autoPlay muted playsInline />}
+      <div className="player-stage" hidden={Boolean(videoUrl)}>
         <div className="player-chips">
           <span className="chip chip-mint">{mode === 'patient' ? 'Patient mode' : 'Student mode'}</span>
           <span className="chip">3D · narrated</span>

@@ -11,7 +11,7 @@ from datetime import datetime
 from backend.app.config import settings
 from backend.app.state.schemas import DoctorInput, Report
 
-FIXED_ORDER = ["transcribe", "deidentify", "research", "storyboard", "narration"]
+FIXED_ORDER = ["transcribe", "deidentify", "research", "video"]
 
 
 @dataclass
@@ -90,19 +90,5 @@ def build_state(reports: list[Report], inputs: list[DoctorInput]) -> TaskState:
 
     for i, key in enumerate(FIXED_ORDER):
         add(key, [FIXED_ORDER[i - 1]] if i else [])
-
-    storyboard = state.subtasks["storyboard"]
-    if storyboard.fresh and storyboard.fresh_report:
-        scene_count = storyboard.fresh_report.state_update.data.get("scene_count")
-        # The storyboard contract requires scene_count; without it assemble would get no scenes.
-        if not isinstance(scene_count, int) or scene_count < 1:
-            raise ValueError(
-                f"storyboard report {storyboard.fresh_report.id} is complete but has "
-                f"no valid scene_count: {scene_count!r}"
-            )
-        scenes = [f"scene:{n}" for n in range(1, scene_count + 1)]
-        for scene in scenes:
-            add(scene, ["storyboard"])
-        add("assemble", ["narration", *scenes])
 
     return state

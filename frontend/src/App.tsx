@@ -8,6 +8,7 @@ import './App.css'
 function App() {
   const [mode, setMode] = useState<Mode>('patient')
   const [result, setResult] = useState<TalkResult | null>(null)
+  const [videoUrl, setVideoUrl] = useState<string | null>(null)
 
   function pickAudience(next: Mode) {
     setMode(next)
@@ -29,9 +30,9 @@ function App() {
                 Describe any procedure out loud. Attend turns it into a clear, animated explainer video:
                 plain language for patients, clinically detailed for students.
               </p>
-              <TalkCard mode={mode} onModeChange={setMode} onResult={setResult} />
+              <TalkCard mode={mode} onModeChange={setMode} onResult={setResult} onVideo={setVideoUrl} />
             </div>
-            <PlayerPreview mode={mode} transcript={result?.text || null} />
+            <PlayerPreview mode={mode} transcript={result?.text || null} videoUrl={videoUrl} />
           </div>
         </section>
         <HowItWorks />

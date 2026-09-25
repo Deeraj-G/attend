@@ -1,8 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { createCase, getTranscript, transcribe, uploadAudio } from '../api'
+import {
+  createCase,
+  getReports,
+  getStatus,
+  getTranscript,
+  getVideo,
+  runHarness,
+  uploadAudio,
+  type HarnessStatus,
+  type Report,
+} from '../api'
 import { useRecorder } from '../recorder/useRecorder'
 import { toWav16k } from '../recorder/wav'
-import { CheckIcon, MicIcon, StopIcon } from './Icons'
+import { HarnessPanel } from './HarnessPanel'
+import { MicIcon, StopIcon } from './Icons'
 
 export type Mode = 'patient' | 'student'
 
@@ -16,8 +27,7 @@ export type TalkResult = {
 
 type Phase = 'idle' | 'saving' | 'transcribing' | 'done' | 'error'
 
-// Steps 2+ exist in the plan but have no endpoint the page can call yet.
-const NEXT_STEPS = ['De-identify', 'Research sources', 'Storyboard & video']
+const POLL_MS = 2500
 
 function formatTime(seconds: number) {
   const s = Math.floor(seconds)
@@ -28,18 +38,24 @@ type Props = {
   mode: Mode
   onModeChange: (mode: Mode) => void
   onResult: (result: TalkResult | null) => void
+  onVideo: (url: string | null) => void
 }
 
-export function TalkCard({ mode, onModeChange, onResult }: Props) {
+export function TalkCard({ mode, onModeChange, onResult, onVideo }: Props) {
   const recorder = useRecorder()
   const [phase, setPhase] = useState<Phase>('idle')
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<TalkResult | null>(null)
   const [audio, setAudio] = useState<Blob | null>(null)
   const submitOnStop = useRef(false)
+  const [caseId, setCaseId] = useState<string | null>(null)
+  const [seconds, setSeconds] = useState(0)
+  const [status, setStatus] = useState<HarnessStatus>({ state: 'idle' })
+  const [reports, setReports] = useState<Report[]>([])
+  const [videoUrl, setVideoUrl] = useState<string | null>(null)
 
   const listening = recorder.state === 'recording'
-  const busy = phase === 'saving' || phase === 'transcribing'
+  const busy = phase === 'saving' || phase === 'transcribing' || status.state === 'running'
 
   const audioUrl = useMemo(() => (audio ? URL.createObjectURL(audio) : null), [audio])
   useEffect(
@@ -54,23 +70,68 @@ export function TalkCard({ mode, onModeChange, onResult }: Props) {
     setError(null)
     setResult(null)
     onResult(null)
+    setReports([])
+    setVideoUrl(null)
+    onVideo(null)
     try {
       setPhase('saving')
       const { wav, seconds } = await toWav16k(source)
       const { id } = await createCase()
       await uploadAudio(id, wav)
+      setSeconds(seconds)
+      setCaseId(id)
+      setStatus(await runHarness(id))
       setPhase('transcribing')
-      const output = await transcribe(id)
-      const { text } = await getTranscript(id)
-      const next = { caseId: id, seconds, text, summary: output.summary, data: output.data ?? {} }
-      setResult(next)
-      onResult(next)
-      setPhase('done')
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
       setPhase('error')
     }
   }
+
+  // Poll the harness while it runs; the Manager's decision says what the doctor sees next.
+  useEffect(() => {
+    if (!caseId || status.state !== 'running') return
+    let cancelled = false
+    const timer = setInterval(async () => {
+      try {
+        const [next, log] = await Promise.all([getStatus(caseId), getReports(caseId)])
+        if (cancelled) return
+        setReports(log)
+        setStatus(next)
+      } catch (e) {
+        if (!cancelled) setStatus({ state: 'error', error: e instanceof Error ? e.message : String(e) })
+      }
+    }, POLL_MS)
+    return () => {
+      cancelled = true
+      clearInterval(timer)
+    }
+  }, [caseId, status.state])
+
+  // Show the transcript as soon as the transcribe step passes its audit.
+  const transcribed = reports.find((r) => r.subtask === 'transcribe' && r.status === 'complete')
+  useEffect(() => {
+    if (!caseId || !transcribed || result) return
+    void getTranscript(caseId).then(({ text }) => {
+      const next = { caseId, seconds, text, summary: transcribed.state_update.facts[0] ?? '', data: {} }
+      setResult(next)
+      onResult(next)
+      setPhase('done')
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [caseId, transcribed?.id])
+
+  // Fetch the video when the Manager reaches the approval gate.
+  useEffect(() => {
+    if (!caseId || status.state !== 'waiting' || status.kind !== 'approval') return
+    void getVideo(caseId)
+      .then((v) => {
+        setVideoUrl(v.sample_url)
+        onVideo(v.sample_url)
+      })
+      .catch(() => setVideoUrl(null))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [caseId, status.state, status.kind, reports.length])
 
   // MediaRecorder hands over the blob asynchronously after stop().
   useEffect(() => {
@@ -112,9 +173,13 @@ export function TalkCard({ mode, onModeChange, onResult }: Props) {
             <span className="rec-time">{formatTime(recorder.elapsed)}</span>
           </div>
         ) : phase === 'saving' ? (
-          <p className="talk-status">Saving your recording…</p>
+          <p className="talk-status">
+            <span className="spinner" aria-hidden="true" />
+            Saving your recording…
+          </p>
         ) : phase === 'transcribing' ? (
           <p className="talk-status">
+            <span className="spinner" aria-hidden="true" />
             Transcribing on this device<span className="dots" aria-hidden="true" />
           </p>
         ) : result ? (
@@ -148,7 +213,7 @@ export function TalkCard({ mode, onModeChange, onResult }: Props) {
           onClick={onTalk}
           disabled={busy}
         >
-          {listening ? <StopIcon /> : <MicIcon />}
+          {listening ? <StopIcon /> : busy ? <span className="spinner" aria-hidden="true" /> : <MicIcon />}
           {listening ? 'Stop' : busy ? 'Working…' : result ? 'Talk again' : 'Talk to me'}
         </button>
       </div>
@@ -162,18 +227,11 @@ export function TalkCard({ mode, onModeChange, onResult }: Props) {
             <p className="talk-warn">Part of the recording may not have transcribed cleanly. Please read it through.</p>
           )}
           {audioUrl && <audio controls src={audioUrl} />}
-          <ol className="pipeline" aria-label="Progress">
-            <li className="is-done">
-              <CheckIcon size={14} /> Recorded
-            </li>
-            <li className="is-done">
-              <CheckIcon size={14} /> Transcribed on device
-            </li>
-            {NEXT_STEPS.map((step) => (
-              <li key={step}>{step}</li>
-            ))}
-          </ol>
         </div>
+      )}
+
+      {caseId && status.state !== 'idle' && (
+        <HarnessPanel caseId={caseId} status={status} reports={reports} videoUrl={videoUrl} onResume={setStatus} />
       )}
 
       {!result && !listening && !busy && (

@@ -5,11 +5,12 @@ import uuid
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
-from pydantic import HttpUrl, TypeAdapter, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl, TypeAdapter, ValidationError
 
 from backend.app.clients.bfl import BFLClient, BFLError
 from backend.app.config import settings
-from backend.app.state.multimedia import MultimediaRequest, build_payload
+from backend.app.agents.verification import VerificationOutput
+from backend.app.state.multimedia import MultimediaRequest, ReferenceImage, VerificationResult, build_payload
 
 router = APIRouter(prefix="/multimedia", tags=["multimedia"])
 TERMINAL = {"Ready", "Error", "Request Moderated", "Content Moderated", "Task not found"}
@@ -35,6 +36,62 @@ def public_job(job: dict) -> dict:
 @router.post("/preview")
 def preview(request: MultimediaRequest) -> dict:
     return {"endpoint": "https://api.bfl.ai/v1/flux-3-video", "payload": build_payload(request)}
+
+
+class FromVerification(BaseModel):
+    """The verifier's own output, as produced by VerificationAgent.verify."""
+
+    model_config = ConfigDict(extra="forbid")
+    verification_output: VerificationOutput
+    original_prompt: str | None = Field(default=None, max_length=8000)  # defaults to the verifier's input
+    duration: int = Field(default=10, ge=5, le=20, strict=True)
+
+
+def from_verification(body: FromVerification) -> MultimediaRequest:
+    """Adapt verifier output to the generation request, keeping only the evidence it cited."""
+    out = body.verification_output
+    if out.decision != "multimedia_generation" or out.handoff is None:
+        raise HTTPException(409, f"Verifier routed to {out.decision!r}, not multimedia_generation")
+    a, handoff = out.assessment, out.handoff
+    cited = [r for r in handoff.results if r.id in set(a.evidence_ids)]
+    try:
+        return _request_from(body, out, cited)
+    except ValidationError as exc:
+        raise HTTPException(422, f"Verifier output does not fit a generation request: {exc.errors()[0]['msg']}") from exc
+
+
+def _request_from(body: FromVerification, out: VerificationOutput, cited: list) -> MultimediaRequest:
+    a, handoff = out.assessment, out.handoff
+    return MultimediaRequest(
+        original_prompt=(body.original_prompt or handoff.original_prompt)[:8000],
+        duration=body.duration,
+        verification=VerificationResult(
+            subject=handoff.transcribed_prompt[:2000],
+            context="\n".join(f"- {r.publisher or r.url}: {r.text}" for r in cited)[:20000],
+            explanation=a.rationale[:20000],
+            description={
+                "generation_requirements": a.generation_requirements,
+                "assumptions": a.assumptions,
+                "missing_evidence": a.missing_evidence,
+            },
+            images=[
+                ReferenceImage(url=m.url, source=r.publisher[:2000], caption=m.description[:4000])
+                for r in cited
+                for m in r.media
+                if m.kind == "image" and m.url.startswith("https://")
+            ][:20],
+        ),
+    )
+
+
+@router.post("/from-verification/preview")
+def preview_from_verification(body: FromVerification) -> dict:
+    return preview(from_verification(body))
+
+
+@router.post("/from-verification", status_code=202)
+async def generate_from_verification(body: FromVerification) -> dict:
+    return await generate(from_verification(body))
 
 
 @router.post("", status_code=202)

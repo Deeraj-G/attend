@@ -950,3 +950,67 @@
   justify-content: space-between;
   gap: 16px;
 }
+
+/* Harness progress and doctor actions */
+.harness {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+}
+.pipeline li.is-active {
+  font-weight: 600;
+}
+.harness-note {
+  opacity: 0.7;
+  font-size: 0.9em;
+}
+.harness-ask {
+  display: grid;
+  gap: 8px;
+}
+.harness-ask textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid currentColor;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  resize: vertical;
+}
+.harness-buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.harness-video,
+.player-video {
+  width: 100%;
+  border-radius: 12px;
+  background: #000;
+}
+
+/* Loading spinner: shown from the moment recording stops until the transcript is back */
+.spinner {
+  display: inline-block;
+  flex: none;
+  width: 1em;
+  height: 1em;
+  margin-right: 0.5em;
+  vertical-align: -0.15em;
+  border: 2px solid var(--accent-soft);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+.talk-button .spinner {
+  margin-right: 0;
+  border-color: currentColor;
+  border-top-color: transparent;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

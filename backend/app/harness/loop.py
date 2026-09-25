@@ -1,5 +1,7 @@
 """Manage -> Execute -> Audit round driver."""
 
+import asyncio
+
 from backend.app.agents import EXECUTORS
 from backend.app.config import settings
 from backend.app.harness.auditor import AuditAgent
@@ -24,7 +26,8 @@ async def run_case(case_id: str) -> AskDoctor | Done:
         if not isinstance(decision, Contract):
             return decision
         output = await EXECUTORS[decision.executor].run(decision, workspace)
-        report = auditor.audit(decision, output, workspace)
+        # The verifier runs the LFM; keep the event loop free for other requests.
+        report = await asyncio.to_thread(auditor.audit, decision, output, workspace)
         reports.append(report)
         all_reports.append(report)
 
