@@ -90,12 +90,12 @@ export function Audiences({ onPick }: { onPick: (mode: Mode) => void }) {
 }
 
 const LIBRARY = [
-  { kind: 'Procedure', title: 'Knee arthroscopy, step by step', time: '4:12', bg: 'var(--ink)', fg: '#6fd6c6' },
-  { kind: 'Condition', title: 'Type 2 diabetes: what’s happening inside', time: '3:05', bg: 'var(--peach)', fg: '#c8674a' },
-  { kind: 'Procedure', title: 'Cardiac catheterization', time: '5:30', bg: 'var(--mint-soft)', fg: '#1d6b62' },
-  { kind: 'Condition', title: 'Asthma and the airways', time: '2:48', bg: 'var(--mist)', fg: '#14212b' },
-  { kind: 'Procedure', title: 'Cesarean delivery', time: '4:45', bg: 'var(--ink-2)', fg: '#e4a58c' },
-  { kind: 'Condition', title: 'How a stroke affects the brain', time: '3:52', bg: 'var(--peach)', fg: '#14212b' },
+  { kind: 'Procedure', title: 'Knee arthroscopy, step by step', time: '4:12', bg: 'var(--surface-2)', fg: '#6fd6c6' },
+  { kind: 'Condition', title: 'Type 2 diabetes: what’s happening inside', time: '3:05', bg: '#2a1f1d', fg: '#f1a98c' },
+  { kind: 'Procedure', title: 'Cardiac catheterization', time: '5:30', bg: '#12302c', fg: '#6fd6c6' },
+  { kind: 'Condition', title: 'Asthma and the airways', time: '2:48', bg: '#1b2433', fg: '#9db8e8' },
+  { kind: 'Procedure', title: 'Cesarean delivery', time: '4:45', bg: 'var(--surface-3)', fg: '#f1a98c' },
+  { kind: 'Condition', title: 'How a stroke affects the brain', time: '3:52', bg: '#231c2e', fg: '#c3a6f0' },
 ]
 
 export function Library() {

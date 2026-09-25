@@ -1,34 +1,45 @@
 :root {
-  --cream: #f2eee6;
-  --paper: #ffffff;
-  --ink: #14212b;
-  --ink-2: #1c2c37;
-  --text: #45515b;
-  --muted: #6b747c;
-  --line: #e1dcd2;
-  --line-dark: #2c3c47;
-  --teal: #1d6b62;
-  --teal-hover: #165750;
-  --mint: #6fd6c6;
-  --mint-soft: #e2f1ed;
-  --peach: #f1e3d8;
-  --coral: #c8674a;
-  --mist: #e7e9ea;
-  --danger: #c2412d;
-  --warn-bg: #fbf1dd;
-  --warn: #8a5a12;
+  /* Surfaces, darkest to lightest */
+  --bg: #0b151c;
+  --bg-alt: #0f1b23;
+  --surface: #13222c;
+  --surface-2: #1a2b36;
+  --surface-3: #223644;
+  --line: #20323d;
+  --line-strong: #2d4452;
+
+  /* Text */
+  --heading: #eef3f5;
+  --text: #b6c3ca;
+  --muted: #8395a1;
+
+  /* Accents */
+  --accent: #6fd6c6;
+  --accent-hover: #8fe3d6;
+  --accent-ink: #062a25; /* text on an --accent fill */
+  --accent-soft: rgba(111, 214, 198, 0.12);
+  --coral: #f1a98c;
+  --coral-soft: rgba(241, 169, 140, 0.14);
+
+  /* Status */
+  --danger: #ff7a6b;
+  --danger-fill: #e5484d;
+  --warn: #f2c46d;
+  --warn-bg: rgba(242, 196, 109, 0.12);
 
   --serif: 'Fraunces Variable', Georgia, 'Times New Roman', serif;
   --sans: 'DM Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --mono: 'DM Mono', ui-monospace, 'SF Mono', Menlo, monospace;
 
-  --radius: 14px;
-  --shadow: 0 1px 2px rgba(20, 33, 43, 0.06), 0 12px 32px -12px rgba(20, 33, 43, 0.18);
+  --radius: 18px;
+  --radius-sm: 12px;
+  --shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 24px 48px -24px rgba(0, 0, 0, 0.7);
+  --glow: 0 0 0 1px rgba(111, 214, 198, 0.18), 0 24px 60px -28px rgba(111, 214, 198, 0.35);
 
-  color-scheme: light;
-  font: 16px/1.55 var(--sans);
+  color-scheme: dark;
+  font: 16px/1.6 var(--sans);
   color: var(--text);
-  background: var(--cream);
+  background: var(--bg);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
@@ -48,9 +59,14 @@ h2,
 h3 {
   font-family: var(--serif);
   font-weight: 420;
-  color: var(--ink);
+  color: var(--heading);
   margin: 0;
   letter-spacing: -0.02em;
+}
+
+::selection {
+  background: var(--accent);
+  color: var(--accent-ink);
 }
 
 p {
@@ -67,7 +83,7 @@ button {
 }
 
 :focus-visible {
-  outline: 2px solid var(--teal);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
