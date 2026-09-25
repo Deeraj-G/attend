@@ -173,9 +173,13 @@ export function TalkCard({ mode, onModeChange, onResult, onVideo }: Props) {
             <span className="rec-time">{formatTime(recorder.elapsed)}</span>
           </div>
         ) : phase === 'saving' ? (
-          <p className="talk-status">Saving your recording…</p>
+          <p className="talk-status">
+            <span className="spinner" aria-hidden="true" />
+            Saving your recording…
+          </p>
         ) : phase === 'transcribing' ? (
           <p className="talk-status">
+            <span className="spinner" aria-hidden="true" />
             Transcribing on this device<span className="dots" aria-hidden="true" />
           </p>
         ) : result ? (
@@ -209,7 +213,7 @@ export function TalkCard({ mode, onModeChange, onResult, onVideo }: Props) {
           onClick={onTalk}
           disabled={busy}
         >
-          {listening ? <StopIcon /> : <MicIcon />}
+          {listening ? <StopIcon /> : busy ? <span className="spinner" aria-hidden="true" /> : <MicIcon />}
           {listening ? 'Stop' : busy ? 'Working…' : result ? 'Talk again' : 'Talk to me'}
         </button>
       </div>
