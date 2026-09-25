@@ -45,6 +45,21 @@ Each run creates `cases/<case_id>/` with `audio/recording.wav` (mono 16-bit WAV)
 `transcript.txt` (input to de-identification), `transcript.json` (per-segment timings and
 checks) and `provenance.json`. `cases/` is gitignored because it may contain PHI.
 
+## Research (step 3)
+
+Needs `NIMBLE_API_KEY` in `.env`. Reads the de-identified `brief.json` (step 2) and makes at
+most 3 Nimble calls (`NIMBLE_MAX_CALLS_PER_RUN`): text from trusted medical sites, Google
+Images, and YouTube/Vimeo videos. Every query is checked for PHI before it is sent.
+
+```bash
+python -m backend.scripts.research --procedure "colonoscopy"   # new case with a stand-in brief
+python -m backend.scripts.research --case <case_id>            # existing case with brief.json
+```
+
+Or `POST /cases/<case_id>/research`. Writes `sources.json` (text sources, each flagged
+`trusted`) and `media_refs.json` (image and video references for prompt writing only; never
+put them in the output video).
+
 ## Adding dependencies
 
 - Python: `pip install <pkg>`, then pin the exact version in `requirements.txt`.

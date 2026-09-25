@@ -16,6 +16,9 @@ class Workspace:
     TRANSCRIPT = "transcript.txt"
     TRANSCRIPT_JSON = "transcript.json"
     PROVENANCE = "provenance.json"
+    BRIEF = "brief.json"
+    SOURCES = "sources.json"
+    MEDIA_REFS = "media_refs.json"
 
     def __init__(self, case_id: str, root: Path | None = None) -> None:
         self.case_id = case_id

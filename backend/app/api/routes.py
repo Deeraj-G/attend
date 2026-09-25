@@ -4,6 +4,7 @@ import uuid
 from fastapi import APIRouter, HTTPException, UploadFile, WebSocket
 
 from backend.app.agents.transcription import TranscriptionAgent, transcription_contract
+from backend.app.agents.web_search import WebSearchAgent, research_contract
 from backend.app.recorder import RecordingError, save_upload
 from backend.app.state.reports import ReportLog
 from backend.app.state.schemas import Case, ExecutorOutput, Report
@@ -67,6 +68,15 @@ def get_transcript(case_id: str) -> dict[str, str]:
     if not path.exists():
         raise HTTPException(404, "not transcribed yet")
     return {"text": path.read_text().strip()}
+
+
+@router.post("/cases/{case_id}/research")
+async def research(case_id: str) -> ExecutorOutput:
+    """Step 3, run directly until the Manager issues c3 contracts itself."""
+    workspace = _workspace(case_id)
+    if not workspace.path(Workspace.BRIEF).exists():
+        raise HTTPException(409, "no de-identified brief yet (step 2)")
+    return await WebSearchAgent().run(research_contract(), workspace)
 
 
 @router.get("/cases/{case_id}/reports")
