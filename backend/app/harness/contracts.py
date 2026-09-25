@@ -2,6 +2,8 @@
 
 from dataclasses import dataclass
 
+from backend.app.agents.transcription import transcription_contract
+from backend.app.agents.web_search import research_contract
 from backend.app.state.schemas import Contract, ExecutorName
 
 
@@ -13,76 +15,31 @@ class Template:
     boundaries: tuple[str, ...]
 
 
+def _from_contract(c: Contract) -> Template:
+    """Executors own their contract definitions; reuse them so the two can't drift."""
+    return Template(c.executor, c.goal, tuple(c.acceptance_criteria), tuple(c.boundaries))
+
+
 TEMPLATES: dict[str, Template] = {
-    "transcribe": Template(
-        executor=ExecutorName.TRANSCRIPTION,
-        goal="Transcribe the doctor's recording on device.",
-        acceptance_criteria=(
-            "transcript.txt exists and is non-empty",
-            "no empty or truncated segments; report data.duration_s",
-        ),
-        boundaries=("on device only; no network calls", "write only transcript.txt and transcript.json"),
-    ),
+    "transcribe": _from_contract(transcription_contract()),
     "deidentify": Template(
         executor=ExecutorName.DEIDENTIFY,
         goal="Produce a de-identified procedure brief from the transcript.",
         acceptance_criteria=(
-            "brief.json has procedure, steps[] and patient_concerns[]",
-            "no names, dates, MRNs or other identifiers",
+            "brief.json has a non-empty procedure",
+            "data.phi_remaining == 0 (no identifiers left in brief.json)",
         ),
         boundaries=("on device only; no network calls", "read transcript.txt; write only brief.json"),
     ),
-    "research": Template(
-        executor=ExecutorName.WEB_SEARCH,
-        goal="Research the procedure for patient education, using the brief.",
-        acceptance_criteria=(
-            "sources.json has >= 3 authoritative sources",
-            "sources cover prep, procedure, recovery and going home",
-        ),
-        boundaries=(
-            "outbound queries built from brief.json only",
-            "exclude forums and marketing pages",
-            "media results are references only, never output",
-            "web sources must not contradict the brief",
-            "write only sources.json and media_refs.json",
-        ),
-    ),
-    "storyboard": Template(
-        executor=ExecutorName.SCRIPT,
-        goal="Break the procedure into 4-6 calm, non-graphic scenes.",
-        acceptance_criteria=(
-            "storyboard.json has 4-6 scenes, each with title, description and visual prompt",
-            "report data.scene_count",
-        ),
-        boundaries=("the doctor's brief is the source of truth", "write only storyboard.json"),
-    ),
-    "narration": Template(
-        executor=ExecutorName.SCRIPT,
-        goal="Write and voice the narration script.",
-        acceptance_criteria=(
-            "script.txt is at a 6th-8th grade reading level, one section per scene",
-            "narration.wav exists",
-        ),
-        boundaries=("TTS on device", "follow storyboard.json", "write only script.txt and narration.wav"),
-    ),
-    "scene": Template(
+    "research": _from_contract(research_contract()),
+    "video": Template(
         executor=ExecutorName.VIDEO_GENERATION,
-        goal="Generate the clip for scene {n}.",
-        acceptance_criteria=("scenes/scene_{n}.mp4 exists and matches the scene's visual prompt",),
+        goal="Generate one calm, non-graphic patient-education video from the brief and verified sources.",
+        acceptance_criteria=("video.json has status Ready and an HTTPS sample_url",),
         boundaries=(
-            "calm, illustrative, non-graphic style",
-            "prompt must be de-identified",
-            "write only scenes/scene_{n}.mp4",
+            "prompt built from brief.json and sources.json only; never the transcript",
+            "write only video.json",
         ),
-    ),
-    "assemble": Template(
-        executor=ExecutorName.ASSEMBLY,
-        goal="Stitch the scene clips, narration and captions into the final video.",
-        acceptance_criteria=(
-            "final.mp4 exists with all scenes in order",
-            "audio length matches the narration",
-        ),
-        boundaries=("local ffmpeg only", "write only final.mp4"),
     ),
 }
 

@@ -3,7 +3,7 @@
 import re
 
 # Rule layer for the outbound guard. Catches structured identifiers; free-text names
-# still need the LFM pass in deidentify().
+# still need the LFM pass in DeidentifyAgent.
 _PHI_PATTERNS = [
     re.compile(r"\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b"),  # dates like 03/14/1962
     re.compile(r"\b(19|20)\d{2}-\d{2}-\d{2}\b"),  # ISO dates
@@ -19,9 +19,11 @@ _PHI_PATTERNS = [
 ]
 
 
-def deidentify(text: str) -> str:
-    """Rule-based scrub (names, dates, IDs) followed by an LFM pass."""
-    raise NotImplementedError
+def scrub(text: str) -> str:
+    """Rule layer: replace structured identifiers. The LFM pass lives in DeidentifyAgent."""
+    for pattern in _PHI_PATTERNS:
+        text = pattern.sub("[REDACTED]", text)
+    return text
 
 
 def contains_phi(payload: str) -> bool:

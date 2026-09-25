@@ -43,8 +43,6 @@ class Case:
         gaps: list[str] | None = None,
         data: dict | None = None,
     ) -> Report:
-        if data is None and contract.subtask == "storyboard" and status == "complete":
-            data = {"scene_count": 3}
         report = Report(
             id=f"v{len(self.reports) + 1}",
             contract_id=contract.id,
@@ -72,7 +70,7 @@ class Case:
         raise AssertionError("manager did not stop")
 
 
-PIPELINE = ["transcribe", "deidentify", "research", "storyboard", "narration", "scene:1", "scene:2", "scene:3", "assemble"]
+PIPELINE = ["transcribe", "deidentify", "research", "video"]
 
 
 @pytest.fixture
@@ -112,22 +110,17 @@ def test_approval_finishes(case):
 def test_related_reports_are_fresh_dependency_reports(case):
     case.run()
     reports = {r.subtask: r.id for r in case.reports}
-    case.doctor("edit", target="narration", text="slower")
-    narration = case.step()
-    assert narration.related_reports == [reports["storyboard"]]
-    case.audit(narration)
-    assemble = case.step()
-    assert assemble.subtask == "assemble"
-    assert assemble.related_reports == [case.reports[-1].id, reports["scene:1"], reports["scene:2"], reports["scene:3"]]
+    case.doctor("edit", target="video", text="slower")
+    video = case.step()
+    assert video.related_reports == [reports["research"]]
 
 
-def test_scene_contract_is_formatted_for_its_scene(case):
-    for _ in range(5):  # transcribe .. narration
+def test_video_contract_uses_video_executor(case):
+    for _ in range(3):  # transcribe .. research
         case.audit(case.step())
-    scene = case.step()
-    assert (scene.subtask, scene.executor, scene.id) == ("scene:1", "video_generation", "c06-scene-1-a1")
-    assert scene.goal == "Generate the clip for scene 1."
-    assert "write only scenes/scene_1.mp4" in scene.boundaries
+    video = case.step()
+    assert (video.subtask, video.executor, video.id) == ("video", "video_generation", "c04-video-a1")
+    assert "write only video.json" in video.boundaries
 
 
 # --- report outcome table -------------------------------------------------------------------
@@ -155,7 +148,7 @@ def test_incomplete_at_cap_asks_doctor_and_answer_allows_retry(case):
     assert "Doctor answered: speak slower is fine" in retry.boundaries
 
 
-def test_research_at_cap_proceeds_with_gaps_carried_to_storyboard(case):
+def test_research_at_cap_proceeds_with_gaps_carried_to_video(case):
     def outcome(c: Contract) -> dict:
         return {"status": "incomplete", "gaps": ["recovery timeline"]} if c.subtask == "research" else {}
 
@@ -165,9 +158,9 @@ def test_research_at_cap_proceeds_with_gaps_carried_to_storyboard(case):
         research = case.step()
         assert (research.subtask, research.attempt) == ("research", attempt)
         case.audit(research, **outcome(research))
-    storyboard = case.step()
-    assert storyboard.subtask == "storyboard"
-    assert "Research gaps (do not invent content): recovery timeline" in storyboard.boundaries
+    video = case.step()
+    assert video.subtask == "video"
+    assert "Research gaps (do not invent content): recovery timeline" in video.boundaries
 
 
 def test_blocked_asks_conflict_question(case):
@@ -231,7 +224,7 @@ def test_violation_complete_discards_and_continues(case):
     research = case.step()
     case.audit(research, integrity="violation", data={"discarded": ["sources[2]"]})
     nxt = case.step()
-    assert isinstance(nxt, Contract) and nxt.subtask == "storyboard"
+    assert isinstance(nxt, Contract) and nxt.subtask == "video"
 
 
 def test_violation_incomplete_retries_without_discarded_items(case):
@@ -255,11 +248,10 @@ def test_discarded_items_accumulate_across_attempts(case):
 
 
 def test_violation_does_not_block_other_work(case):
-    for _ in range(5):  # transcribe .. narration
-        case.audit(case.step())
-    case.audit(case.step(), integrity="violation", data={"discarded": ["prompt"]})  # scene:1 complete
+    case.audit(case.step())  # transcribe
+    case.audit(case.step(), integrity="violation", data={"discarded": ["brief.json"]})  # deidentify complete
     nxt = case.step()
-    assert isinstance(nxt, Contract) and nxt.subtask == "scene:2"
+    assert isinstance(nxt, Contract) and nxt.subtask == "research"
 
 
 def test_violation_never_asks_the_doctor(case):
@@ -274,68 +266,46 @@ def test_violation_never_asks_the_doctor(case):
 # --- doctor inputs: edits, re-recording, approval freshness ---------------------------------
 
 
-def test_edit_regenerates_only_target_and_assemble(case):
+def test_edit_regenerates_only_the_video(case):
     case.run()
-    case.doctor("edit", target="scene:2", text="too clinical")
+    case.doctor("edit", target="video", text="too clinical")
     decision, issued = case.run()
-    assert issued == ["scene:2", "assemble"]
+    assert issued == ["video"]
     assert isinstance(decision, AskDoctor) and decision.kind == "approval"
 
 
 def test_edit_text_becomes_boundary_and_persists(case):
     case.run()
-    case.doctor("edit", target="scene:2", text="too clinical")
+    case.doctor("edit", target="video", text="too clinical")
     first = case.step()
     assert "Doctor edit: too clinical" in first.boundaries
     case.audit(first)
     case.run()
-    case.doctor("edit", target="scene:2", text="brighter colours")
+    case.doctor("edit", target="video", text="brighter colours")
     second = case.step()
     assert second.attempt == 1
     assert {"Doctor edit: too clinical", "Doctor edit: brighter colours"} <= set(second.boundaries)
 
 
-def test_storyboard_edit_regenerates_everything_downstream(case):
+def test_research_edit_regenerates_everything_downstream(case):
     case.run()
-    case.doctor("edit", target="storyboard", text="add a check-in scene")
+    case.doctor("edit", target="research", text="add recovery sources")
     _, issued = case.run()
-    assert issued == ["storyboard", "narration", "scene:1", "scene:2", "scene:3", "assemble"]
-
-
-@pytest.mark.parametrize("data", [{}, {"scene_count": 0}, {"scene_count": "3"}])
-def test_complete_storyboard_without_valid_scene_count_raises(case, data):
-    for _ in PIPELINE[:3]:
-        case.audit(case.step())
-    storyboard = case.step()
-    assert storyboard.subtask == "storyboard"
-    case.audit(storyboard, data=data)
-    with pytest.raises(ValueError, match="scene_count"):
-        case.step()
-
-
-def test_new_storyboard_scene_count_changes_scene_set(case):
-    case.run()
-    case.doctor("edit", target="storyboard", text="fewer scenes")
-
-    def outcome(c: Contract) -> dict:
-        return {"data": {"scene_count": 2}} if c.subtask == "storyboard" else {}
-
-    _, issued = case.run(outcome)
-    assert issued == ["storyboard", "narration", "scene:1", "scene:2", "assemble"]
+    assert issued == ["research", "video"]
 
 
 def test_old_approval_does_not_count_after_edit(case):
     case.run()
     case.doctor("approval")
-    case.doctor("edit", target="narration", text="slower")
+    case.doctor("edit", target="video", text="slower")
     decision, issued = case.run()
-    assert issued == ["narration", "assemble"]
+    assert issued == ["video"]
     assert isinstance(decision, AskDoctor) and decision.kind == "approval"
 
 
 def test_new_recording_restarts_the_case_and_drops_old_feedback(case):
     case.run()
-    case.doctor("edit", target="scene:1", text="old feedback")
+    case.doctor("edit", target="video", text="old feedback")
     case.doctor("recording")
     contracts: list[Contract] = []
 

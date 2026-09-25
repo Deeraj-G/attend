@@ -40,11 +40,11 @@ class ManagerAgent:
             if not subtask.fresh and subtask.stale_since is not None:
                 return _decide(state, subtask, round_no)
 
-        assemble = state.subtasks.get("assemble")
+        video = state.subtasks.get("video")
         approved_at = [i.created_at for i in state.inputs if i.kind == "approval"]
-        if assemble and assemble.fresh_report and any(t > assemble.fresh_report.created_at for t in approved_at):
+        if video and video.fresh_report and any(t > video.fresh_report.created_at for t in approved_at):
             return Done()
-        return AskDoctor(kind="approval", question="Review final.mp4 and approve it or request an edit.")
+        return AskDoctor(kind="approval", question="Review the video and approve it or request an edit.")
 
 
 def _decide(state: TaskState, s: SubtaskState, round_no: int) -> ManagerDecision:
@@ -100,7 +100,7 @@ def _contract(
     # Doctor feedback carries forward across regenerations of the same subtask.
     boundaries += [f"Doctor edit: {i.text}" for i in state.inputs_for(s.key, "edit") if i.text]
     boundaries += [f"Doctor answered: {i.text}" for i in state.inputs_for(s.key, "answer") if i.text]
-    if s.key == "storyboard" and (gaps := state.subtasks["research"].accepted_gaps):
+    if s.key == "video" and (gaps := state.subtasks["research"].accepted_gaps):
         boundaries.append(f"Research gaps (do not invent content): {', '.join(gaps)}")
 
     related = [d.fresh_report.id for d in (state.subtasks[k] for k in s.deps) if d.fresh_report]
