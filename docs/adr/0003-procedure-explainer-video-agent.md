@@ -181,14 +181,15 @@ sequenceDiagram
 flowchart TD
     In([Executor output oi]) --> P{"PHI in any<br/>outbound payload?"}
     P -- yes --> Vio["Discard offending items<br/>integrity = violation<br/>list refs in data.discarded"]
-    Vio --> Prov
     P -- no --> Prov{"Provenance ok?<br/>only allowed files changed"}
     Prov -- no --> Sus["integrity = suspect<br/>manager re-issues contract"]
-    Prov -- yes --> Acc{"Acceptance criteria met?"}
+    Prov -- yes --> Clean["integrity = clean"]
+    Vio --> Acc
+    Clean --> Acc{"Acceptance criteria met?<br/>(integrity already set)"}
     Acc -- no --> Inc["status = incomplete<br/>gaps listed"]
     Acc -- yes --> Con{"Consistent with doctor's<br/>description?"}
     Con -- no --> Blk["status = blocked<br/>ask route: conflict"]
-    Con -- yes --> Ok["status = complete<br/>integrity = clean"]
+    Con -- yes --> Ok["status = complete"]
     Sus --> R[(Append Vi)]
     Inc --> R
     Blk --> R
