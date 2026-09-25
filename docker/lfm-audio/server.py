@@ -36,10 +36,12 @@ def health():
     return {"status": "ok", "model_path": MODEL_PATH}
 
 
+# Plain `def` handlers: FastAPI runs them in a thread pool, so CPU-bound
+# inference doesn't block the event loop (and /health) while it runs.
 @app.post("/transcribe")
-async def transcribe(audio: UploadFile):
+def transcribe(audio: UploadFile):
     with tempfile.NamedTemporaryFile(suffix=".wav") as tmp:
-        tmp.write(await audio.read())
+        tmp.write(audio.file.read())
         tmp.flush()
         wav, sampling_rate = sf.read(tmp.name, dtype="float32")
 
@@ -61,7 +63,7 @@ async def transcribe(audio: UploadFile):
 
 
 @app.post("/synthesize")
-async def synthesize(text: str):
+def synthesize(text: str):
     chat = ChatState(processor)
     chat.new_turn("system")
     chat.add_text("Perform TTS.")
