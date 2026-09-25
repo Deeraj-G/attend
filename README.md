@@ -76,6 +76,9 @@ directly using the keys in `.env.dev`, no container needed for those.
 docker compose up --build
 ```
 
+Give Docker at least 10GB of memory: `lfm-audio` runs in float32 (~7GB) because
+its bfloat16 CPU kernels crash with SIGILL on Apple silicon.
+
 | Service | Port | Notes |
 |---|---|---|
 | frontend | 5173 | Vite dev server |
@@ -84,8 +87,10 @@ docker compose up --build
 | lfm-audio | 8090 | `POST /transcribe`, `POST /synthesize` |
 
 `backend/` and `frontend/` are bind-mounted, so edits on the host reload live.
-`LFM_BASE_URL` and `LFM_AUDIO_BASE_URL` are passed to the backend container for
-when `LFMClient`/`LFMAudioClient` are implemented to call these servers over HTTP.
+The backend container gets `LFM_BASE_URL` and `LFM_AUDIO_BASE_URL`, so
+`LFMClient`/`LFMAudioClient` call the model containers over HTTP and the image
+installs only `requirements-core.txt` (no torch). Without those variables, as on
+the host venv, the clients load the models in-process.
 
 ## Adding dependencies
 

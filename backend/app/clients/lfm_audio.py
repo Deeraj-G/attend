@@ -1,9 +1,14 @@
-"""LFM2.5-Audio-1.5B: on-device speech-to-text and text-to-speech."""
+"""LFM2.5-Audio-1.5B: on-device speech-to-text and text-to-speech.
 
+Loaded in-process, or served by docker/lfm-audio/server.py when LFM_AUDIO_BASE_URL is set.
+"""
+
+import io
 import threading
 from functools import cached_property
 from pathlib import Path
 
+import httpx
 import numpy as np
 import soundfile as sf
 from pydantic import BaseModel
@@ -83,8 +88,10 @@ def speech_seconds(samples: np.ndarray, sample_rate: int) -> float:
 class LFMAudioClient:
     """Loads the model lazily on first use. Import cost is paid once per process."""
 
-    def __init__(self) -> None:
+    def __init__(self, base_url: str | None = None, transport: httpx.BaseTransport | None = None) -> None:
         self._lock = threading.Lock()  # one generation at a time; the model is not re-entrant
+        self.base_url = (settings.lfm_audio_base_url if base_url is None else base_url).rstrip("/")
+        self._transport = transport  # tests inject httpx.MockTransport
 
     @cached_property
     def _model(self):  # noqa: ANN202 — liquid_audio types are heavy imports
@@ -100,7 +107,8 @@ class LFMAudioClient:
 
     def load(self) -> None:
         """Warm the model so the first request doesn't pay the load time."""
-        _ = self._model
+        if not self.base_url:
+            _ = self._model
 
     def transcribe(self, audio_path: Path) -> Transcript:
         wave, sample_rate = sf.read(audio_path, dtype="float32", always_2d=True)
@@ -114,7 +122,7 @@ class LFMAudioClient:
         return Transcript(
             text=" ".join(s.text for s in segments if s.text),
             duration_s=round(len(mono) / sample_rate, 2),
-            model=str(settings.lfm_audio_model_path or settings.lfm_audio_repo),
+            model=self.base_url or str(settings.lfm_audio_model_path or settings.lfm_audio_repo),
             segments=segments,
         )
 
@@ -144,6 +152,8 @@ class LFMAudioClient:
         ]
 
     def _transcribe_chunk(self, samples: np.ndarray, sample_rate: int) -> tuple[str, int]:
+        if self.base_url:
+            return self._transcribe_chunk_http(samples, sample_rate)
         import torch
         from liquid_audio import ChatState
 
@@ -162,6 +172,21 @@ class LFMAudioClient:
         if not text_tokens:
             return "", len(generated)
         return processor.text.decode(torch.cat(text_tokens), skip_special_tokens=True).strip(), len(generated)
+
+    def _transcribe_chunk_http(self, samples: np.ndarray, sample_rate: int) -> tuple[str, int]:
+        wav = io.BytesIO()
+        sf.write(wav, samples, sample_rate, format="WAV", subtype="PCM_16")
+        with httpx.Client(
+            base_url=self.base_url, timeout=settings.model_timeout_seconds, transport=self._transport
+        ) as client:
+            response = client.post(
+                "/transcribe",
+                params={"max_new_tokens": TOKENS_PER_CHUNK},
+                files={"audio": ("chunk.wav", wav.getvalue(), "audio/wav")},
+            )
+        response.raise_for_status()
+        body = response.json()
+        return body["text"].strip(), body["tokens"]
 
     def synthesize(self, text: str, out_path: Path) -> Path:
         raise NotImplementedError
