@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from enum import StrEnum
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -18,6 +18,8 @@ class Contract(BaseModel):
     """Subtask contract c_i emitted by the Manager."""
 
     id: str
+    subtask: str  # e.g. "research", "scene:3"
+    attempt: int = 1
     executor: ExecutorName
     goal: str
     acceptance_criteria: list[str]
@@ -31,12 +33,14 @@ class ExecutorOutput(BaseModel):
     contract_id: str
     artifacts: list[str] = []  # workspace-relative paths written
     summary: str = ""
+    data: dict[str, Any] = {}  # structured values for the Auditor; never PHI
 
 
 class StateUpdate(BaseModel):
     facts: list[str] = []
     evidence: list[str] = []
     gaps: list[str] = []
+    data: dict[str, Any] = {}  # structured values for the Manager: scene_count, question, ...
 
 
 class Report(BaseModel):
@@ -44,9 +48,20 @@ class Report(BaseModel):
 
     id: str
     contract_id: str
+    subtask: str  # copied from the contract by the Auditor
     status: Literal["complete", "incomplete", "blocked"]
     integrity: Literal["clean", "suspect", "violation"]
     state_update: StateUpdate = StateUpdate()
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class DoctorInput(BaseModel):
+    """Doctor input from inputs.jsonl: the recording, answers, edits and approval."""
+
+    id: str
+    kind: Literal["recording", "answer", "edit", "approval"]
+    target: str | None = None  # subtask key for answers and edits
+    text: str | None = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 

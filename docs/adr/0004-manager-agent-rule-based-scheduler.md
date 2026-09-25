@@ -20,7 +20,7 @@ ADR 0003 describes a Manager that reads only audit reports, decides the next sub
 ## Decision
 
 1. **The Manager is a pure function** of the task, the report log and the doctor-input log:
-   `next_step(task, reports, inputs) -> Contract | AskDoctor | Done`.
+   `next_step(reports, inputs, round_no) -> Contract | AskDoctor | Done`.
    It holds no state of its own. Every round it rebuilds the task state from the logs, so a crash or restart loses nothing.
 2. **Subtasks form a fixed dependency graph** (below). The Manager picks the **first subtask in topological order that is not fresh but whose dependencies are all fresh**, and issues one contract for it. It issues one contract per round; scene clips could run in parallel later.
 3. **Freshness replaces explicit invalidation.** A subtask is *fresh* when its latest report is `complete` + `clean` **and** that report is newer than its dependencies' fresh reports **and** newer than any doctor input that targets it. When an upstream result changes, or the doctor asks for an edit, everything downstream goes stale automatically, and only that part is regenerated.
@@ -210,7 +210,7 @@ These go into [state/schemas.py](../../backend/app/state/schemas.py) with the im
 | new `DoctorInput` | `id`, `kind ∈ {recording, answer, edit, approval}`, `target: str \| None`, `text: str \| None`, `created_at` | Stored in `inputs.jsonl` |
 | `AskDoctor` | add `kind ∈ {recording, conflict, violation, retries_exhausted, approval}` and `subtask: str \| None` | Lets the UI render the right prompt |
 
-`ManagerAgent.next_step` becomes `next_step(task, reports, inputs, round)`. The loop passes the round number so contract IDs are stable.
+`ManagerAgent.next_step` becomes `next_step(reports, inputs, round_no)`. The loop passes the round number so contract IDs are stable. The task description isn't needed by the rules; it returns when the LFM layer is added.
 
 ---
 

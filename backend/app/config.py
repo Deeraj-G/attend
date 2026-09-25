@@ -18,6 +18,7 @@ class Settings(BaseSettings):
 
     # Harness budgets
     max_rounds: int = 30
+    max_attempts: int = 2  # per subtask, before asking the doctor
     max_research_iterations: int = 3
     executor_token_budget: int = 4000
 

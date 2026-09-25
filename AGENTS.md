@@ -18,6 +18,7 @@ Procedure explainer video agent on a Manage-Execute-Audit harness. Design decisi
 ```bash
 source .venv/bin/activate && pip install -r requirements.txt   # backend deps
 uvicorn backend.app.main:app --reload                           # backend on :8000
+python -m pytest backend/tests                                  # backend tests
 cd frontend && npm ci && npm run dev                            # frontend on :5173 (proxies /api -> :8000)
 ```
 
