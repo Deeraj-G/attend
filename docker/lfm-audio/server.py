@@ -19,6 +19,12 @@ MODEL_PATH = os.environ.get("LFM_AUDIO_MODEL_PATH", "LiquidAI/LFM2.5-Audio-1.5B"
 DEVICE = os.environ.get("LFM_AUDIO_DEVICE", "cpu")
 DTYPE = getattr(torch, os.environ.get("LFM_AUDIO_DTYPE", "float32"))
 
+if DEVICE == "cpu":
+    # liquid_audio 1.3.0's LFM2AudioProcessor.audio_detokenizer hardcodes
+    # .cuda() regardless of the device passed to from_pretrained(). Redirect
+    # it here rather than patching the installed package.
+    torch.nn.Module.cuda = lambda self, device=None: self.to("cpu")
+
 app = FastAPI(title="lfm-audio-local")
 
 processor = LFM2AudioProcessor.from_pretrained(MODEL_PATH, device=DEVICE).eval()
@@ -50,7 +56,7 @@ async def transcribe(audio: UploadFile):
     with torch.no_grad():
         for t in model.generate_sequential(**chat, max_new_tokens=512):
             if t.numel() == 1:
-                text += processor.text.decode(t)
+                text += processor.text.decode(t, skip_special_tokens=True)
     return {"text": text}
 
 
