@@ -1,4 +1,4 @@
-# longhorizon
+# Attend
 
 ## Prerequisites
 
@@ -59,6 +59,33 @@ python -m backend.scripts.research --case <case_id>            # existing case w
 Or `POST /cases/<case_id>/research`. Writes `sources.json` (text sources, each flagged
 `trusted`) and `media_refs.json` (image and video references for prompt writing only; never
 put them in the output video).
+
+## Docker (local testing)
+
+Runs the backend, frontend, and the two on-device models as separate containers.
+Nimble and BFL are hosted APIs, not local models — the backend calls them
+directly using the keys in `.env.dev`, no container needed for those.
+
+```bash
+# One-time: fetch the LFM2.5-2.6B GGUF weights (~1.6GB, not committed to git)
+./scripts/fetch_models.sh
+
+# LFM2.5-Audio-1.5B: downloads from Hugging Face by default, or put a
+# checkpoint at ./models/lfm-audio and set LFM_AUDIO_MODEL_PATH=/models
+
+docker compose up --build
+```
+
+| Service | Port | Notes |
+|---|---|---|
+| frontend | 5173 | Vite dev server |
+| backend | 8000 | FastAPI with autoreload |
+| lfm | 8081 | llama.cpp server, OpenAI-compatible API |
+| lfm-audio | 8090 | `POST /transcribe`, `POST /synthesize` |
+
+`backend/` and `frontend/` are bind-mounted, so edits on the host reload live.
+`LFM_BASE_URL` and `LFM_AUDIO_BASE_URL` are passed to the backend container for
+when `LFMClient`/`LFMAudioClient` are implemented to call these servers over HTTP.
 
 ## Adding dependencies
 
