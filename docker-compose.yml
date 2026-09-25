@@ -1,0 +1,57 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: docker/backend/Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app/backend
+    env_file:
+      - .env.dev
+    environment:
+      LFM_BASE_URL: http://lfm:8080
+      LFM_AUDIO_BASE_URL: http://lfm-audio:8090
+    depends_on:
+      - lfm
+      - lfm-audio
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: ../docker/frontend/Dockerfile
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      VITE_API_PROXY_TARGET: http://backend:8000
+    depends_on:
+      - backend
+
+  # LFM2.5-2.6B (text). Put a GGUF file in ./models/lfm first.
+  lfm:
+    build: ./docker/lfm
+    ports:
+      - "8081:8080"
+    volumes:
+      - ${LFM_MODEL_DIR:-./models/lfm}:/models:ro
+    command:
+      [
+        "-m", "/models/${LFM_MODEL_FILE:-lfm2.5-2.6b-q4.gguf}",
+        "--host", "0.0.0.0",
+        "--port", "8080",
+        "-c", "4096",
+      ]
+
+  # LFM2.5-Audio-1.5B (STT + TTS). Downloads from Hugging Face by default;
+  # point LFM_AUDIO_MODEL_PATH at ./models/lfm-audio to use local weights instead.
+  lfm-audio:
+    build: ./docker/lfm-audio
+    ports:
+      - "8090:8090"
+    volumes:
+      - ${LFM_AUDIO_MODEL_DIR:-./models/lfm-audio}:/models:ro
+    environment:
+      LFM_AUDIO_MODEL_PATH: ${LFM_AUDIO_MODEL_PATH:-LiquidAI/LFM2.5-Audio-1.5B}
