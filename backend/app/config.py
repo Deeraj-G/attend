@@ -10,7 +10,12 @@ class Settings(BaseSettings):
 
     # On-device models
     lfm_model_path: Path | None = None
-    lfm_audio_model_path: Path | None = None
+    lfm_audio_model_path: Path | None = None  # local checkout; falls back to the HF repo below
+    lfm_audio_repo: str = "LiquidAI/LFM2.5-Audio-1.5B"
+    lfm_audio_device: str = "auto"  # auto | mps | cuda | cpu
+
+    # Recorder
+    max_recording_seconds: int = 300
 
     # External services
     nimble_api_key: str = ""

@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from enum import StrEnum
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -31,6 +31,7 @@ class ExecutorOutput(BaseModel):
     contract_id: str
     artifacts: list[str] = []  # workspace-relative paths written
     summary: str = ""
+    data: dict[str, Any] = {}  # numbers the Auditor can check; never artifact content (PHI)
 
 
 class StateUpdate(BaseModel):
@@ -50,7 +51,16 @@ class Report(BaseModel):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
+class Artifact(BaseModel):
+    """A workspace file and the executor that wrote it."""
+
+    path: str
+    written_by: str
+    sha256: str
+
+
 class Case(BaseModel):
     id: str
     procedure: str | None = None
     approved: bool = False
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
