@@ -44,7 +44,7 @@ This is a long-horizon task. It runs through many searches, audits, scene genera
    - **External State Memory:** reports are appended to `reports.jsonl`. They are the *only* thing the Manager reads, so memory grows by one report per round rather than with the trajectory.
    - **Terminate** when every subtask has status `complete`, integrity is `clean`, and the doctor has approved.
 2. **Environment = a per-case workspace folder** (`cases/<case_id>/`): audio, transcript, de-identified brief, sources, storyboard, scene clips, final video. The Auditor checks artifact provenance (which executor wrote each file) and flags unexpected mutations or deletions.
-3. **Verify the research handoff.** VerificationAgent receives the original prompt, transcribed search prompt, and Nimble's textual evidence plus captions or upstream analysis for image and video results. It returns one relational score from 1–10. Scores of **8 or higher** move to multimedia generation; lower scores trigger another search, or review when the evidence contains a material contradiction. The score measures relevance rather than clinical truth. LFM2.5-2.6B is text-only, so a bare media URL is never treated as verified visual evidence.
+3. **Verify the research handoff.** VerificationAgent receives the original prompt, transcribed search prompt, and Nimble's textual evidence plus captions or upstream analysis for image and video results. It returns one relational score from 1–10. Any reported contradiction routes to review regardless of score. Otherwise, scores of **8 or higher** move to multimedia generation and lower scores trigger another search. The score measures relevance rather than clinical truth. LFM2.5-2.6B is text-only, so a bare media URL is never treated as verified visual evidence.
 4. **Decompose the video into scenes** (about 4–6, for example *before you arrive → check-in and prep → anesthesia → the procedure, shown non-graphically → recovery → going home*). Each scene is its own subtask contract. Edits regenerate a single scene, not the whole video.
 5. **Build narration on device.** LFM2.5-2.6B writes a script at a 6th–8th grade reading level, and LFM2.5-Audio-1.5B voices it. The final video is BFL scene clips plus narration, stitched with `ffmpeg`.
 6. **Put a PHI boundary at the device edge.** A de-identification step (rules for names, dates and IDs, followed by an LFM pass) produces the only text that may leave. The Auditor re-checks every outbound payload.
@@ -109,8 +109,9 @@ flowchart TD
     S1 --> S2["c2 · De-identify + brief<br/>procedure, steps, patient concerns"]
     S2 --> S3["c3 · Research<br/>Nimble text + image + video"]
     S3 --> S4{"c4 · Verify relationship<br/>original + transcript + evidence<br/>score 1–10"}
-    S4 -->|"score < 8 · gaps"| S3
-    S4 -->|"score ≥ 8"| S5["c5 · Storyboard<br/>4–6 scenes, calm, non-graphic"]
+    S4 -->|"contradiction · any score"| Review["Doctor review · ask route"]
+    S4 -->|"score < 8 · no contradiction"| S3
+    S4 -->|"score ≥ 8 · no contradiction"| S5["c5 · Storyboard<br/>4–6 scenes, calm, non-graphic"]
     S5 --> S6["c6 · Narration script + TTS<br/>6th–8th grade reading level"]
     S5 --> S7["c7..ck · Generate scene clips<br/>Black Forest Labs, one per scene"]
     S6 --> S8["Assemble<br/>ffmpeg: clips + narration + captions"]

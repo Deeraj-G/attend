@@ -6,8 +6,8 @@ pydantic==2.13.5
 pydantic-settings==2.15.0
 python-dotenv==1.2.3
 httpx==0.28.1
-transformers>=5.0.0,<6
-accelerate>=1.10.0,<2
-torch>=2.6.0,<3
+transformers==5.0.0
+accelerate==1.10.0
+torch==2.6.0
 python-multipart==0.0.32
 websockets==17.1

@@ -18,8 +18,9 @@ deidentification stage before verification.
 
 The model assigns one relational score from 1–10 after comparing the original
 prompt, transcribed prompt, and search evidence. A score of 8 or higher routes to
-`multimedia_generation`; lower scores route to `web_search`, or `review` when a
-material contradiction is reported. The score measures relevance, not a calibrated
+`multimedia_generation` when no contradictions are reported; any contradiction
+routes to `review` regardless of score. Other lower scores route to `web_search`.
+Missing evidence clamps both score fields to 1. The score measures relevance, not a calibrated
 probability of medical correctness.
 
 The supplied retinal-vein example is a positive calibration example in the

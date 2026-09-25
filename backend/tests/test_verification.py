@@ -74,6 +74,45 @@ class VerificationTests(unittest.TestCase):
         )
         self.assertEqual(result.decision, "review")
 
+    def test_contradictions_override_every_passing_score(self):
+        for score in (8, 9, 10):
+            with self.subTest(score=score):
+                result = finalize(self.data, assessment(
+                    score, contradictions=["Wrong vessel: artery instead of vein"]
+                ))
+                self.assertEqual(result.decision, "review")
+                self.assertIsNone(result.handoff)
+
+    def test_clamped_scores_agree_without_mutating_model_assessment(self):
+        for empty_results in (False, True):
+            with self.subTest(empty_results=empty_results):
+                data = self.data.model_copy(update={"results": []}) if empty_results else self.data
+                raw = assessment(10, evidence_ids=[])
+                result = finalize(data, raw)
+                self.assertEqual(result.relational_score, 1)
+                self.assertEqual(result.assessment.relational_score, 1)
+                self.assertEqual(raw.relational_score, 10)
+                self.assertIsNone(result.handoff)
+
+    def test_parser_uses_final_assessment_instead_of_worked_example(self):
+        response = assessment(10).model_dump_json() + "\nFinal answer:\n" + assessment(3).model_dump_json()
+        self.assertEqual(LFMClient._parse_structured(response, Assessment).relational_score, 3)
+
+    def test_parser_does_not_fall_back_to_example_if_final_answer_is_invalid(self):
+        for ending in ('{"relational_score":', '{"relational_score": 99}'):
+            with self.subTest(ending=ending):
+                with self.assertRaises(ValueError):
+                    LFMClient._parse_structured(assessment(10).model_dump_json() + ending, Assessment)
+
+    def test_parser_ignores_reasoning_and_accepts_fenced_final_answer(self):
+        response = '<think>' + assessment(10).model_dump_json() + '</think>\n```json\n'
+        response += assessment(7).model_dump_json() + '\n```'
+        self.assertEqual(LFMClient._parse_structured(response, Assessment).relational_score, 7)
+
+    def test_parser_rejects_unfinished_reasoning(self):
+        with self.assertRaises(ValueError):
+            LFMClient._parse_structured('<think>' + assessment(10).model_dump_json(), Assessment)
+
     def test_empty_results_receive_minimum_score(self):
         self.data.results = []
         result = finalize(self.data, assessment(10, evidence_ids=[]))

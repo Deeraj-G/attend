@@ -1,6 +1,7 @@
 """LFM2.5-2.6B loaded from the Hugging Face Hub with Transformers."""
 
 import json
+from threading import Lock
 from typing import Any
 
 from pydantic import BaseModel
@@ -12,21 +13,27 @@ class LFMClient:
     def __init__(self, model: Any = None, tokenizer: Any = None) -> None:
         self.model = model
         self.tokenizer = tokenizer
+        self._load_lock = Lock()
 
     def _load(self) -> None:
+        with self._load_lock:
+            self._load_locked()
+
+    def _load_locked(self) -> None:
         if self.model is not None and self.tokenizer is not None:
             return
         from transformers import AutoModelForCausalLM, AutoTokenizer
 
         model_id = str(settings.lfm_model_path or settings.lfm_model)
         token = settings.hf_token or None
-        self.model = AutoModelForCausalLM.from_pretrained(
+        model = AutoModelForCausalLM.from_pretrained(
             model_id,
             device_map="auto",
             dtype="auto",
             token=token,
         )
-        self.tokenizer = AutoTokenizer.from_pretrained(model_id, token=token)
+        tokenizer = AutoTokenizer.from_pretrained(model_id, token=token)
+        self.model, self.tokenizer = model, tokenizer
 
     def generate(self, prompt: str, max_tokens: int = 512) -> str:
         return self._complete(prompt, max_tokens)
@@ -67,13 +74,22 @@ class LFMClient:
 
     @staticmethod
     def _parse_structured[T: BaseModel](content: str, schema: type[T]) -> T:
-        """Find and validate the JSON answer after any model reasoning text."""
+        """Validate a final JSON object, never an earlier worked example."""
+        if "</think>" in content:
+            content = content.rsplit("</think>", 1)[1]
+        elif "<think>" in content:
+            raise ValueError("LFM response contains unfinished reasoning")
+        content = content.strip()
+        if content.startswith("```json\n") and content.endswith("```"):
+            content = content[8:-3].strip()
         decoder = json.JSONDecoder()
         for index, character in enumerate(content):
             if character != "{":
                 continue
             try:
-                value, _ = decoder.raw_decode(content[index:])
+                value, end = decoder.raw_decode(content[index:])
+                if content[index + end:].strip():
+                    continue
                 return schema.model_validate(value)
             except (json.JSONDecodeError, ValueError):
                 continue

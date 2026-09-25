@@ -100,10 +100,11 @@ def finalize(data: VerificationInput, assessment: Assessment) -> VerificationOut
     score = assessment.relational_score
     if not data.results or not assessment.evidence_ids:
         score = 1
-    if score >= 8:
-        decision = "multimedia_generation"
-    elif assessment.contradictions:
+    assessment = assessment.model_copy(update={"relational_score": score})
+    if assessment.contradictions:
         decision = "review"
+    elif score >= 8:
+        decision = "multimedia_generation"
     else:
         decision = "web_search"
     return VerificationOutput(
