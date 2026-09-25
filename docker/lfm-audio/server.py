@@ -17,7 +17,8 @@ from liquid_audio import ChatState, LFM2AudioModel, LFM2AudioProcessor
 MODEL_PATH = os.environ.get("LFM_AUDIO_MODEL_PATH", "LiquidAI/LFM2.5-Audio-1.5B")
 # Both default to device="cuda" in liquid-audio; this container has no GPU.
 DEVICE = os.environ.get("LFM_AUDIO_DEVICE", "cpu")
-DTYPE = getattr(torch, os.environ.get("LFM_AUDIO_DTYPE", "float32"))
+# bfloat16 halves memory vs float32 (~3GB vs ~6GB), so it fits alongside `lfm`.
+DTYPE = getattr(torch, os.environ.get("LFM_AUDIO_DTYPE", "bfloat16"))
 
 if DEVICE == "cpu":
     # liquid_audio 1.3.0's LFM2AudioProcessor.audio_detokenizer hardcodes
