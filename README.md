@@ -42,7 +42,8 @@ python -m backend.scripts.record --file a.wav --transcribe
 ```
 
 Each run creates `cases/<case_id>/` with `audio/recording.wav` (mono 16-bit WAV),
-`transcript.txt` and `provenance.json`. `cases/` is gitignored because it may contain PHI.
+`transcript.txt` (input to de-identification), `transcript.json` (per-segment timings and
+checks) and `provenance.json`. `cases/` is gitignored because it may contain PHI.
 
 ## Adding dependencies
 

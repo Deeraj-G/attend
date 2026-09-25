@@ -1,7 +1,12 @@
 // Backend client. Vite proxies /api -> http://localhost:8000.
 
 export type Case = { id: string; procedure: string | null; approved: boolean; created_at: string }
-export type ExecutorOutput = { contract_id: string; artifacts: string[]; summary: string }
+export type ExecutorOutput = {
+  contract_id: string
+  artifacts: string[]
+  summary: string
+  data: Record<string, number>
+}
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`/api${path}`, init)

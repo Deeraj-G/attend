@@ -56,6 +56,7 @@ def main() -> None:
         print("Transcribing on device (first run loads the model)...")
         output = asyncio.run(TranscriptionAgent().run(transcription_contract(), workspace))
         print(output.summary)
+        print(output.data)
         print(workspace.path(Workspace.TRANSCRIPT).read_text())
 
 

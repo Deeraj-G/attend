@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from enum import StrEnum
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -31,6 +31,7 @@ class ExecutorOutput(BaseModel):
     contract_id: str
     artifacts: list[str] = []  # workspace-relative paths written
     summary: str = ""
+    data: dict[str, Any] = {}  # numbers the Auditor can check; never artifact content (PHI)
 
 
 class StateUpdate(BaseModel):

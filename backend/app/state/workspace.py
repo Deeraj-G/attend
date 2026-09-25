@@ -14,6 +14,8 @@ class Workspace:
 
     AUDIO = "audio/recording.wav"
     TRANSCRIPT = "transcript.txt"
+    TRANSCRIPT_JSON = "transcript.json"
+    PROVENANCE = "provenance.json"
 
     def __init__(self, case_id: str, root: Path | None = None) -> None:
         self.case_id = case_id
@@ -26,7 +28,7 @@ class Workspace:
 
     @property
     def _provenance_file(self) -> Path:
-        return self.dir / "provenance.json"
+        return self.dir / self.PROVENANCE
 
     def path(self, relative: str) -> Path:
         return self.dir / relative
