@@ -9,6 +9,7 @@ class ExecutorName(StrEnum):
     TRANSCRIPTION = "transcription"
     DEIDENTIFY = "deidentify"
     WEB_SEARCH = "web_search"
+    VERIFICATION = "verification"
     SCRIPT = "script"
     VIDEO_GENERATION = "video_generation"
     ASSEMBLY = "assembly"

@@ -49,7 +49,7 @@ Steps 3–6 are the long pre-processing phase. They run in the background with a
 │  └───┬───────────────┬──────────────────┬──────────────────┬──────────────┘  │
 │      │               │                  │                  │                 │
 │  LFM2.5-2.6B     LFM2.5-Audio-1.5B   Local RAG            Embedder           │
-│  (Q4, llama.cpp) (ASR + TTS 24kHz)   (sqlite-vec/Lance)   (small, CPU)       │
+│  (HF Transformers)(ASR + TTS 24kHz)  (sqlite-vec/Lance)   (small, CPU)       │
 └──────┼───────────────────────────────────────────────────────────────────────┘
        │ HTTPS                                    │ HTTPS
    Nimble Web Search API                    RawTree (Tinybird)
@@ -58,7 +58,7 @@ Steps 3–6 are the long pre-processing phase. They run in the background with a
 
 **Proposed stack** (confirm each item before building on it):
 - Orchestrator: Python 3.11 + FastAPI + WebSocket; a plain state machine, no heavy agent framework.
-- LFM2.5-2.6B: GGUF Q4 via `llama.cpp` / `llama-cpp-python`, with JSON-schema constrained output for plans and grades.
+- LFM2.5-2.6B: the agentic Hugging Face checkpoint via Transformers, with Pydantic validation for structured outputs.
 - LFM2.5-Audio-1.5B: Liquid's audio runtime. *Verify: packaging, CPU latency, and whether it handles both ASR and TTS in one model.*
 - RAG: `sqlite-vec` or LanceDB (single file, no server) plus a small CPU embedding model.
 - RawTree: Tinybird-hosted ClickHouse fork, reached through its HTTP ingest and SQL endpoints. *Verify: JSON column support and vector distance functions (`cosineDistance`).*
