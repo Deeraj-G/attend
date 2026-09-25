@@ -19,6 +19,10 @@ class Settings(BaseSettings):
 
     # External services
     nimble_api_key: str = ""
+    nimble_api_base: str = "https://sdk.nimbleway.com/v2"
+    nimble_timeout_seconds: float = 30.0
+    nimble_max_calls_per_run: int = 3  # one text + one image + one video search
+    nimble_results_per_call: int = 8
     bfl_api_key: str = ""
 
     # Harness budgets
