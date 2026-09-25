@@ -24,7 +24,8 @@ def build_request(
     steps = "; ".join(brief.get("steps", []))
     prompt = f"Explain what happens during a {brief['procedure']} for a nervous patient. Steps: {steps}"
     # Doctor edits and answers arrive as contract boundaries; pass them on as production notes.
-    notes = [b for b in contract.boundaries if b.startswith(("Doctor edit:", "Doctor answered:"))]
+    notes = [f"Doctor asked: {v}" for v in brief.get("visual_requests", [])]
+    notes += [b for b in contract.boundaries if b.startswith(("Doctor edit:", "Doctor answered:"))]
     if notes:
         prompt += "\nDoctor notes: " + " ".join(notes)
     # Prefer the sources the verifier cited; fall back to trusted ones if it cited none.
@@ -69,7 +70,9 @@ class VideoGenerationAgent:
         verdict = _research_verdict(workspace, contract.related_reports)
         request = build_request(contract, brief, load(Workspace.SOURCES), load(Workspace.MEDIA_REFS), verdict)
         payload = build_payload(request)
-        if contains_phi(payload["prompt"]):
+        # Only the patient-derived part (brief + doctor notes) can hold PHI; web sources can't,
+        # and their stock-image IDs and phone numbers trip the pattern rules.
+        if contains_phi(request.original_prompt):
             return ExecutorOutput(contract_id=contract.id, summary="prompt blocked for PHI", data={"phi_blocked": 1})
 
         job: dict = {"status": "Error", "sample_url": None, "message": None}

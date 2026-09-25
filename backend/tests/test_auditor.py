@@ -101,3 +101,17 @@ def test_video_request_uses_cited_sources_and_requirements():
 
     fallback = build_request(c, {"procedure": "colonoscopy", "steps": []}, sources, {}, {})
     assert "Uncited" in fallback.verification.context
+
+
+def test_brief_accepts_wrapped_strings_from_the_model():
+    from backend.app.agents.deidentify import Brief
+
+    b = Brief.model_validate({"procedure": {"title": "appendectomy"}, "steps": [{"text": "remove appendix"}]})
+    assert (b.procedure, b.steps) == ("appendectomy", ["remove appendix"])
+
+
+def test_rules_only_brief_is_incomplete(ws):
+    ws.record_provenance(Workspace.BRIEF, "deidentify")
+    c = build_contract("deidentify", attempt=1, round_no=2, related_reports=[])
+    out = ExecutorOutput(contract_id=c.id, artifacts=[Workspace.BRIEF], data={"source": "rules_only", "phi_remaining": 0})
+    assert AuditAgent(FakeVerifier("multimedia_generation")).audit(c, out, ws).status == "incomplete"

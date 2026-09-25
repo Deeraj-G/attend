@@ -11,6 +11,9 @@ from backend.app.agents.verification import SearchResult, VerificationAgent, Ver
 from backend.app.state.schemas import Contract, ExecutorOutput, Report, StateUpdate
 from backend.app.state.workspace import Workspace
 
+VERIFIER_MAX_RESULTS = 8
+VERIFIER_TEXT_CHARS = 800
+
 
 class AuditAgent:
     def __init__(self, verifier: VerificationAgent | None = None) -> None:
@@ -53,6 +56,9 @@ class AuditAgent:
             case "deidentify":
                 if d.get("phi_remaining"):
                     return report("incomplete", "violation", ["identifiers left in brief"], discarded=["brief.json"])
+                if d.get("source") != "lfm":
+                    # The rules-only fallback is the raw transcript, not a brief; research needs a real one.
+                    return report("incomplete", gaps=["LFM brief extraction failed; brief is raw transcript"])
                 return report("complete")
             case "research":
                 return self._audit_research(workspace, d, report)
@@ -67,20 +73,36 @@ class AuditAgent:
     def _audit_research(self, workspace: Workspace, d: dict, report) -> Report:
         brief = json.loads(workspace.path(Workspace.BRIEF).read_text())
         sources = json.loads(workspace.path(Workspace.SOURCES).read_text())["sources"]
+        # The LFM server has an 8k context and the verifier reserves 4k for its answer: keep input small.
+        ranked = sorted(sources, key=lambda s: not s.get("trusted"))[:VERIFIER_MAX_RESULTS]
         results = [
-            SearchResult(id=f"s{i}", url=s["url"], text=f"{s['title']}. {s['snippet']}"[:2000], publisher=s["domain"])
-            for i, s in enumerate(sources[:20])
+            SearchResult(id=f"s{i}", url=s["url"], text=f"{s['title']}. {s['snippet']}"[:VERIFIER_TEXT_CHARS], publisher=s["domain"])
+            for i, s in enumerate(ranked)
         ]
-        request = f"Patient-education video about {brief['procedure']}. Steps: {'; '.join(brief.get('steps', []))}"
+        # Frame the request as reference-gathering. Asked about a "video", LFM2.5 flags text sources
+        # as a contradiction ("evidence is articles, not video") and blocks the case.
+        request = (
+            f"Find reliable reference material about {brief['procedure']} to base a patient-education "
+            "animation on. The animation itself will be generated later from these references."
+        )
+        if brief.get("steps"):
+            request += f" Steps the doctor described: {'; '.join(brief['steps'])}."
+        if brief.get("visual_requests"):
+            request += f" Doctor's instructions for the animation: {'; '.join(brief['visual_requests'])}"
         try:
             verdict = self.verifier.verify(
-                VerificationInput(original_prompt=request, transcribed_prompt=brief["procedure"], results=results)
+                VerificationInput(
+                    original_prompt=request,
+                    transcribed_prompt=f"{brief['procedure']} patient education references",
+                    results=results,
+                )
             )
-        except Exception:
-            # Verifier unavailable: fall back to the executor's own counts.
+        except Exception as e:
+            # Verifier unavailable: fall back to the executor's own counts, and say why in the report.
+            error = f"{type(e).__name__}: {e}"[:300]
             if d.get("trusted_sources", 0) >= 3:
-                return report("complete", verifier="unavailable")
-            return report("incomplete", gaps=["fewer than 3 trusted sources"], verifier="unavailable")
+                return report("complete", verifier="unavailable", verifier_error=error)
+            return report("incomplete", gaps=["fewer than 3 trusted sources"], verifier="unavailable", verifier_error=error)
 
         a = verdict.assessment
         # Keep what the video step needs. Evidence is stored as URLs, since result IDs are positional.
