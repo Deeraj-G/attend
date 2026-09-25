@@ -34,7 +34,9 @@ Nimble and BFL are hosted APIs, not local models — the backend calls them
 directly using the keys in `.env.dev`, no container needed for those.
 
 ```bash
-# LFM2.5-2.6B: put a GGUF file at ./models/lfm/lfm2.5-2.6b-q4.gguf
+# One-time: fetch the LFM2.5-2.6B GGUF weights (~1.6GB, not committed to git)
+./scripts/fetch_models.sh
+
 # LFM2.5-Audio-1.5B: downloads from Hugging Face by default, or put a
 # checkpoint at ./models/lfm-audio and set LFM_AUDIO_MODEL_PATH=/models
 
