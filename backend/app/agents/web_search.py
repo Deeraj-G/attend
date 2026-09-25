@@ -34,6 +34,7 @@ def research_contract(contract_id: str = "c3", related_reports: list[str] | None
     """The c3 contract, until the Manager emits it itself. Pass audit report ids to re-search their gaps."""
     return Contract(
         id=contract_id,
+        subtask="research",
         executor=ExecutorName.WEB_SEARCH,
         goal="Research the procedure for a patient-education video: text sources plus image and video references.",
         acceptance_criteria=[

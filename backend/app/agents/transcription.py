@@ -16,6 +16,7 @@ def transcription_contract(contract_id: str = "c1") -> Contract:
     lo, hi = WORDS_PER_SPEECH_SECOND
     return Contract(
         id=contract_id,
+        subtask="transcribe",
         executor=ExecutorName.TRANSCRIPTION,
         goal="Transcribe the doctor's procedure description on device.",
         acceptance_criteria=[
