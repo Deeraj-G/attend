@@ -343,6 +343,6 @@ Executors get contract cᵢ plus the related reports only. Their step history is
 
 - [ ] Confirm Black Forest Labs video generation access; otherwise commit to the keyframe fallback.
 - [ ] Confirm Nimble image and video search parameters.
-- [ ] Confirm LFM2.5-Audio-1.5B's STT input format (sample rate, max clip length) and TTS voices.
+- [x] Confirm LFM2.5-Audio-1.5B's STT input format: any rate (resampled to 16 kHz internally), mono. Single-pass ASR degrades past ~1 min, so recordings are split at silence into ≤30 s chunks. TTS voices: US/UK male/female.
 - [ ] Decide whether to add RawTree as a 4th sponsor tool (report mirror + a cross-case source cache).
 - [ ] Mark ADR 0001 and 0002 as *Superseded* if the team commits to this use case.
